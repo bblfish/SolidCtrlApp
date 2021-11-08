@@ -2,7 +2,7 @@
 //name := "Solidapp"
 //version := "0.1.0"
 
-scalaVersion := "3.1.0"
+scalaVersion := "2.13.7"
 
 val outwatchVersion = "e02749756f"
 resolvers += "jitpack" at "https://jitpack.io"
@@ -26,9 +26,9 @@ addCommandAlias("dev", "; compile; fastOptJS::startWebpackDevServer; devwatch; f
 addCommandAlias("devwatch", "~; fastOptJS; copyFastOptJS")
 
 // https://webpack.github.io
-webpack / version := "5.62.1"
+webpack / version := "4.46.0"
 // https://webpack.js.org/configuration/dev-server/
-startWebpackDevServer / version := "4.4.0"
+startWebpackDevServer / version := "3.11.2"
 webpackDevServerExtraArgs := Seq("--color")
 webpackDevServerPort := 8080
 fastOptJS / webpackConfigFile := Some(baseDirectory.value / "webpack.config.dev.js")

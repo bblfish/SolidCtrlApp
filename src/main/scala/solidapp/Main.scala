@@ -2,7 +2,7 @@ package solidapp
 
 import outwatch.Render.SourceRenderAs
 import outwatch.OutWatch
-import outwatch.dsl.*
+import outwatch.dsl._
 import cats.effect.{IO, SyncIO}
 
 import colibri.Subject
