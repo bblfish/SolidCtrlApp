@@ -2,7 +2,7 @@
 //name := "Solidapp"
 //version := "0.1.0"
 
-scalaVersion := "2.13.7"
+scalaVersion := "3.1.0"
 
 val outwatchVersion = "e02749756f"
 resolvers += "jitpack" at "https://jitpack.io"
