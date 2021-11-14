@@ -1,15 +1,18 @@
-//organization := "cosy.run"
-//name := "Solidapp"
-//version := "0.1.0"
+organization := "cosy.run"
+name := "SolidApp"
+version := "0.1.0"
 
 scalaVersion := "3.1.0"
 
-val outwatchVersion = "e02749756f"
+//val outwatchVersion = "0.11.1-SNAPSHOT"
 resolvers += "jitpack" at "https://jitpack.io"
-libraryDependencies ++= Seq(
-  ("com.github.outwatch.outwatch" %%% "outwatch" % outwatchVersion) cross CrossVersion.for3Use2_13,
-  "org.scalatest" %%% "scalatest" % "3.2.9" % Test
-)
+//libraryDependencies ++= Seq(
+//  ("io.github.outwatch" %%% "outwatch" % outwatchVersion) cross CrossVersion.for3Use2_13,
+//  "org.scalatest" %%% "scalatest" % "3.2.9" % Test
+//)
+
+// https://github.com/http4s/http4s-dom
+libraryDependencies += "org.http4s" %%% "http4s-dom" % "1.0.0-M29"
 
 enablePlugins(ScalaJSBundlerPlugin)
 useYarn := true // makes scalajs-bundler use yarn instead of npm
