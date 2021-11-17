@@ -20,6 +20,7 @@ object Fetcher {
 		uri"https://bblfish.net/people/henry/card",
 		Accept(turtle.withQValue(QValue.One))
 	)
+	clnt.run(req)
 	val answer: IO[String] = clnt.expect[String](req)
 
 	def main(args: Array[String]): Unit =

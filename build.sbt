@@ -1,11 +1,20 @@
+import Dependencies._
+
 organization := "cosy.run"
 name := "SolidApp"
 version := "0.1.0"
-scalaVersion := "3.1.0"
+scalaVersion := Ver.scala
 
 import org.scalajs.jsenv.nodejs.NodeJSEnv
 
-
+lazy val commonSettings = Seq(
+   name := "Solid App",
+   version := "0.1-SNAPSHOT",
+   description := "Solid App",
+   startYear := Some(2021),
+   scalaVersion := Ver.scala,
+   updateOptions := updateOptions.value.withCachedResolution(true) //to speed up dependency resolution
+)
 
 //val outwatchVersion = "0.11.1-SNAPSHOT"
 resolvers += "jitpack" at "https://jitpack.io"
@@ -16,6 +25,7 @@ resolvers += "jitpack" at "https://jitpack.io"
 
 lazy val app = project.in(file("app"))
 	.enablePlugins(ScalaJSBundlerPlugin)
+	.settings(commonSettings:_*)
 	.settings(
 	// https://github.com/http4s/http4s-dom
 		libraryDependencies += "org.http4s" %%% "http4s-dom" % "1.0.0-M29",
@@ -31,17 +41,45 @@ lazy val app = project.in(file("app"))
 		jsEnv := new NodeJSEnv(NodeJSEnv.Config().withArgs(List("--dns-result-order=ipv4first"))),
 
 	)
-val n3jsFile = Path("n3js").asFile.getAbsoluteFile()
-lazy val n3js = project.in(n3jsFile)
+val n3jsDir = Path("n3js").asFile.getAbsoluteFile()
+//project to use when we want to create code from the TypeScript Template for N3
+// https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/n3
+lazy val n3jsST = project.in(n3jsDir/"ST")
 	.enablePlugins(ScalablyTypedConverterGenSourcePlugin)
 	.settings(
+		name := "n3js Scalably Typed project",
 		stUseScalaJsDom := true,
-		stSourceGenMode := SourceGenMode.Manual(n3jsFile/"src"/"main"/"scala"),
+		stSourceGenMode := SourceGenMode.Manual(n3jsDir/"src"/"main"/"scala"),
 		useYarn := true, // makes scalajs-bundler use yarn instead of npm
 		Compile / npmDependencies += "@types/n3" -> "1.10.3",
 		stMinimize := Selection.AllExcept("n3"),
 		stOutputPackage := "n3js",
 	)
+
+lazy val n3js = project.in(n3jsDir)
+	.settings(commonSettings:_*)
+	.enablePlugins(ScalaJSPlugin)
+	.enablePlugins(ScalaJSBundlerPlugin)
+	.settings(
+		name := "N3js",
+	// https://github.com/http4s/http4s-dom
+		libraryDependencies ++= Seq(
+		"org.http4s" %%% "http4s-dom" % "1.0.0-M29",
+		"net.bblfish.rdf" %%% "rdf-model-js" % "0.1-SNAPSHOT"
+		),
+		resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
+		useYarn := true, // makes scalajs-bundler use yarn instead of npm
+		Test / requireJsDomEnv := true,
+		scalaJSUseMainModuleInitializer := true,
+		scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)), // configure Scala.js to emit a JavaScript module instead of a top-level script
+
+		// https://github.com/rdfjs/N3.js/
+		// do I also need to run `npm install n3` ?
+		Compile / npmDependencies += "n3" -> "1.11.2",
+		Test / npmDependencies += "n3" -> "1.11.2",
+		jsEnv := new NodeJSEnv(NodeJSEnv.Config().withArgs(List("--dns-result-order=ipv4first"))),
+
+	)	
 	
 
 
