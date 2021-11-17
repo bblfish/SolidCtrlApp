@@ -1,8 +1,11 @@
 organization := "cosy.run"
 name := "SolidApp"
 version := "0.1.0"
-
 scalaVersion := "3.1.0"
+
+import org.scalajs.jsenv.nodejs.NodeJSEnv
+
+
 
 //val outwatchVersion = "0.11.1-SNAPSHOT"
 resolvers += "jitpack" at "https://jitpack.io"
@@ -11,17 +14,41 @@ resolvers += "jitpack" at "https://jitpack.io"
 //  "org.scalatest" %%% "scalatest" % "3.2.9" % Test
 //)
 
-// https://github.com/http4s/http4s-dom
-libraryDependencies += "org.http4s" %%% "http4s-dom" % "1.0.0-M29"
+lazy val app = project.in(file("app"))
+	.enablePlugins(ScalaJSBundlerPlugin)
+	.settings(
+	// https://github.com/http4s/http4s-dom
+		libraryDependencies += "org.http4s" %%% "http4s-dom" % "1.0.0-M29",
+		useYarn := true, // makes scalajs-bundler use yarn instead of npm
+		Test / requireJsDomEnv := true,
+		scalaJSUseMainModuleInitializer := true,
+		scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)), // configure Scala.js to emit a JavaScript module instead of a top-level script
 
-enablePlugins(ScalaJSBundlerPlugin)
-useYarn := true // makes scalajs-bundler use yarn instead of npm
-Test / requireJsDomEnv := true
-scalaJSUseMainModuleInitializer := true
-scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)) // configure Scala.js to emit a JavaScript module instead of a top-level script
+		// https://github.com/rdfjs/N3.js/
+		// do I also need to run:q `npm install n3` ?
+		Compile / npmDependencies += "n3" -> "1.11.2",
+		Test / npmDependencies += "n3" -> "1.11.2",
+		jsEnv := new NodeJSEnv(NodeJSEnv.Config().withArgs(List("--dns-result-order=ipv4first"))),
 
-import org.scalajs.jsenv.nodejs.NodeJSEnv
-jsEnv := new NodeJSEnv(NodeJSEnv.Config().withArgs(List("--dns-result-order=ipv4first")))
+	)
+val n3jsFile = Path("n3js").asFile.getAbsoluteFile()
+lazy val n3js = project.in(n3jsFile)
+	.enablePlugins(ScalablyTypedConverterGenSourcePlugin)
+	.settings(
+		stUseScalaJsDom := true,
+		stSourceGenMode := SourceGenMode.Manual(n3jsFile/"src"/"main"/"scala"),
+		useYarn := true, // makes scalajs-bundler use yarn instead of npm
+		Compile / npmDependencies += "@types/n3" -> "1.10.3",
+		stMinimize := Selection.AllExcept("n3"),
+		stOutputPackage := "n3js",
+	)
+	
+
+
+
+
+
+
 
 // hot reloading configuration:
 // https://github.com/scalacenter/scalajs-bundler/issues/180
