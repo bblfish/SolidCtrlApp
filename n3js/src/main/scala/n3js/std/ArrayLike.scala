@@ -22,7 +22,7 @@ object ArrayLike {
   }
   
   @scala.inline
-  implicit class ArrayLikeMutableBuilder[Self <: ArrayLike[_], T] (val x: Self with ArrayLike[T]) extends AnyVal {
+  implicit class ArrayLikeMutableBuilder[Self <: ArrayLike[?], T] (val x: Self & ArrayLike[T]) extends AnyVal {
     
     @scala.inline
     def setLength(value: Double): Self = StObject.set(x, "length", value.asInstanceOf[js.Any])

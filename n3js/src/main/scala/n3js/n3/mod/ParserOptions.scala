@@ -12,9 +12,7 @@ trait ParserOptions extends StObject {
   
   var blankNodePrefix: js.UndefOr[String] = js.native
   
-  var factory: js.UndefOr[
-    n3js.rdfjsTypes.dataModelMod.DataFactory[n3js.rdfjsTypes.dataModelMod.Quad, n3js.rdfjsTypes.dataModelMod.Quad]
-  ] = js.native
+  var factory: js.UndefOr[run.cosy.rdfjs.model.DataFactory] = js.native
   
   // string type is here to maintain backwards compatibility - consider removing when
   // updating major version
@@ -44,9 +42,7 @@ object ParserOptions {
     def setBlankNodePrefixUndefined: Self = StObject.set(x, "blankNodePrefix", js.undefined)
     
     @scala.inline
-    def setFactory(
-      value: n3js.rdfjsTypes.dataModelMod.DataFactory[n3js.rdfjsTypes.dataModelMod.Quad, n3js.rdfjsTypes.dataModelMod.Quad]
-    ): Self = StObject.set(x, "factory", value.asInstanceOf[js.Any])
+    def setFactory(value: run.cosy.rdfjs.model.DataFactory): Self = StObject.set(x, "factory", value.asInstanceOf[js.Any])
     
     @scala.inline
     def setFactoryUndefined: Self = StObject.set(x, "factory", js.undefined)
