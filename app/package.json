@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "n3": "^1.11.2",
+    "source-map-loader": "^3.0.0",
+    "uuid": "^8.3.2",
+    "webpack": "^5.64.2",
+    "webpack-dev-server": "^4.5.0"
+  }
+}

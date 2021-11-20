@@ -52,14 +52,17 @@ lazy val app = project.in(file("app"))
 	.settings(
 	// https://github.com/http4s/http4s-dom
 		libraryDependencies += "org.http4s" %%% "http4s-dom" % "1.0.0-M29",
+		libraryDependencies += "n3js" %%% "n3js" % "0.1-SNAPSHOT",
+		// libraryDependencies += 
+		resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
 		useYarn := true, // makes scalajs-bundler use yarn instead of npm
 		Test / requireJsDomEnv := true,
 		scalaJSUseMainModuleInitializer := true,
 		scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)), // configure Scala.js to emit a JavaScript module instead of a top-level script
 		jsEnv := new NodeJSEnv(NodeJSEnv.Config().withArgs(List("--dns-result-order=ipv4first"))),
-	).dependsOn(n3js)
+	)//.dependsOn(n3js)
 
-val n3jsDir = Path("n3js").asFile.getAbsoluteFile()
+lazy val n3jsDir = Path("n3js").asFile.getAbsoluteFile()
 //project to use when we want to create code from the TypeScript Template for N3
 // https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/n3
 // lazy val n3jsST = project.in(n3jsDir/"ST")
@@ -90,7 +93,7 @@ lazy val n3js = project.in(n3jsDir)
 		resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
 		useYarn := true, // makes scalajs-bundler use yarn instead of npm
 		Test / requireJsDomEnv := true,
-		scalaJSUseMainModuleInitializer := true,
+		// scalaJSUseMainModuleInitializer := true,
 		scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)), // configure Scala.js to emit a JavaScript module instead of a top-level script
 
 		// https://github.com/rdfjs/N3.js/
@@ -106,9 +109,10 @@ addCommandAlias("dev", "; compile; fastOptJS::startWebpackDevServer; devwatch; f
 addCommandAlias("devwatch", "~; fastOptJS; copyFastOptJS")
 
 // https://webpack.github.io
-webpack / version := "4.46.0"
+// https://github.com/webpack/webpack
+webpack / version := "5.64.2"
 // https://webpack.js.org/configuration/dev-server/
-startWebpackDevServer / version := "3.11.2"
+startWebpackDevServer / version := "4.5.0"
 webpackDevServerExtraArgs := Seq("--color")
 webpackDevServerPort := 8080
 fastOptJS / webpackConfigFile := Some(baseDirectory.value / "webpack.config.dev.js")
