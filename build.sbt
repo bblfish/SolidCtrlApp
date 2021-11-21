@@ -53,14 +53,29 @@ lazy val app = project.in(file("app"))
 	// https://github.com/http4s/http4s-dom
 		libraryDependencies += "org.http4s" %%% "http4s-dom" % "1.0.0-M29",
 		libraryDependencies += "n3js" %%% "n3js" % "0.1-SNAPSHOT",
-		// libraryDependencies += 
 		resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
-		useYarn := true, // makes scalajs-bundler use yarn instead of npm
+		// useYarn := true, // makes scalajs-bundler use yarn instead of npm
 		Test / requireJsDomEnv := true,
 		scalaJSUseMainModuleInitializer := true,
 		scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)), // configure Scala.js to emit a JavaScript module instead of a top-level script
 		jsEnv := new NodeJSEnv(NodeJSEnv.Config().withArgs(List("--dns-result-order=ipv4first"))),
-	)//.dependsOn(n3js)
+
+		// https://webpack.github.io
+		// https://github.com/webpack/webpack
+		// webpack 5 should be supported https://github.com/scalacenter/scalajs-bundler/issues/350
+		//webpack / version := "5.64.2",
+		// https://webpack.js.org/configuration/dev-server/
+		// startWebpackDevServer / version := "4.5.0",
+
+		// https://github.com/scalacenter/scalajs-bundler/issues/385#issuecomment-756243511
+		webpackEmitSourceMaps := false,
+		
+		webpackDevServerExtraArgs := Seq("--color"),
+		webpackDevServerPort := 8080,
+	   /* fastOptJS */ webpackConfigFile := Some(baseDirectory.value / "webpack.config.dev.js"),
+		// fastOptJS / webpackBundlingMode := BundlingMode.LibraryOnly(), // https://scalacenter.github.io/scalajs-bundler/cookbook.html#performance
+	   // emitSourceMaps := false
+	).dependsOn(n3js)
 
 lazy val n3jsDir = Path("n3js").asFile.getAbsoluteFile()
 //project to use when we want to create code from the TypeScript Template for N3
@@ -91,8 +106,8 @@ lazy val n3js = project.in(n3jsDir)
 		"net.bblfish.rdf" %%% "rdf-model-js" % "0.1-SNAPSHOT"
 		),
 		resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
-		useYarn := true, // makes scalajs-bundler use yarn instead of npm
-		Test / requireJsDomEnv := true,
+		// useYarn := true, // makes scalajs-bundler use yarn instead of npm
+		// Test / requireJsDomEnv := true,
 		// scalaJSUseMainModuleInitializer := true,
 		scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)), // configure Scala.js to emit a JavaScript module instead of a top-level script
 
@@ -105,26 +120,16 @@ lazy val n3js = project.in(n3jsDir)
 
 // hot reloading configuration:
 // https://github.com/scalacenter/scalajs-bundler/issues/180
-addCommandAlias("dev", "; compile; fastOptJS::startWebpackDevServer; devwatch; fastOptJS::stopWebpackDevServer")
-addCommandAlias("devwatch", "~; fastOptJS; copyFastOptJS")
-
-// https://webpack.github.io
-// https://github.com/webpack/webpack
-webpack / version := "5.64.2"
-// https://webpack.js.org/configuration/dev-server/
-startWebpackDevServer / version := "4.5.0"
-webpackDevServerExtraArgs := Seq("--color")
-webpackDevServerPort := 8080
-fastOptJS / webpackConfigFile := Some(baseDirectory.value / "webpack.config.dev.js")
-fastOptJS / webpackBundlingMode := BundlingMode.LibraryOnly() // https://scalacenter.github.io/scalajs-bundler/cookbook.html#performance
+// addCommandAlias("dev", "; compile; fastOptJS::startWebpackDevServer; devwatch; fastOptJS::stopWebpackDevServer")
+//addCommandAlias("devwatch", "~; fastOptJS; copyFastOptJS")
 
 // when running the "dev" alias, after every fastOptJS compile all artifacts are copied into
 // a folder which is served and watched by the webpack devserver.
 // this is a workaround for: https://github.com/scalacenter/scalajs-bundler/issues/180
-lazy val copyFastOptJS = TaskKey[Unit]("copyFastOptJS", "Copy javascript files to target directory")
-copyFastOptJS := {
-  val inDir = (Compile / fastOptJS / crossTarget).value
-  val outDir = (Compile / fastOptJS / crossTarget).value / "dev"
-  val files = Seq(name.value.toLowerCase + "-fastopt-loader.js", name.value.toLowerCase + "-fastopt.js") map { p => (inDir / p, outDir / p) }
-  IO.copy(files, overwrite = true, preserveLastModified = true, preserveExecutable = true)
-}
+// lazy val copyFastOptJS = TaskKey[Unit]("copyFastOptJS", "Copy javascript files to target directory")
+// copyFastOptJS := {
+//   val inDir = (Compile / fastOptJS / crossTarget).value
+//   val outDir = (Compile / fastOptJS / crossTarget).value / "dev"
+//   val files = Seq(name.value.toLowerCase + "-fastopt-loader.js", name.value.toLowerCase + "-fastopt.js") map { p => (inDir / p, outDir / p) }
+//   IO.copy(files, overwrite = true, preserveLastModified = true, preserveExecutable = true)
+// }
