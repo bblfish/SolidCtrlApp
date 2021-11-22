@@ -10,6 +10,10 @@ import org.http4s.Method.GET
 import org.http4s.MediaType.text.turtle
 import cats.effect.IO
 import scala.scalajs.js.annotation.{JSExport,JSExportTopLevel}
+import fs2.text
+import run.cosy.app.io.n3.N3Parser
+import fs2.INothing
+import java.nio.charset.Charset
 
 @JSExportTopLevel("Fetcher")
 object Fetcher {
@@ -38,7 +42,15 @@ object Fetcher {
 	
 	def main(args: Array[String]): Unit =
 		appendPar(document.body, "Hello World")
-		answer.unsafeRunAsync{
+		val utfStr: fs2.Stream[cats.effect.IO, String] = clnt.stream(req).flatMap(_.body)
+			.through(text.utf8.decode)
+	
+		val ios: fs2.Stream[cats.effect.IO, INothing] = utfStr
+			// .through(N3Parser.parse)
+			.foreach { triple => 
+				IO(appendPar(document.body, triple.toString))
+			}
+		ios.compile.lastOrError.unsafeRunAsync{
 			case Left(err)     => appendPar(document.body, err.toString)
 			case Right(answer) => appendPar(document.body, answer)
 		}

@@ -89,7 +89,7 @@ lazy val app = project.in(file("app"))
 		fastOptJS / webpackConfigFile := Some(baseDirectory.value / "webpack.config.dev.js"),
 		fastOptJS / webpackBundlingMode := BundlingMode.LibraryOnly(), // https://scalacenter.github.io/scalajs-bundler/cookbook.html#performance
 	   //emitSourceMaps := false
-	).dependsOn(n3js)
+	).dependsOn(n3js) 
 
 lazy val n3jsDir = Path("n3js").asFile.getAbsoluteFile()
 //project to use when we want to create code from the TypeScript Template for N3
