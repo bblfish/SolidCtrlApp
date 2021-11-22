@@ -5,15 +5,14 @@
     "log4s": "^1.0.2",
     "n3": "^1.11.2",
     "source-map-loader": "^3.0.0",
-    "webpack": "^5.64.2",
-    "webpack-cli": "4.9.1",
-    "webpack-dev-server": "4.5.0"
+    "webpack-dev-server": "^4.5.0"
   },
   "resolutions": {
     "webpack": "5.64.2",
     "webpack-cli": "4.9.1"
   },
   "devDependencies": {
-    "@webpack-cli/serve": "@1.6.1"
+    "webpack": "^5.64.2",
+    "webpack-cli": "^4.9.1"
   }
 }
