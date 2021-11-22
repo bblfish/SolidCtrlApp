@@ -57,8 +57,8 @@ lazy val app = project.in(file("app"))
 	.settings(commonSettings:_*)
 	.settings(
 		description := "The Solid App",
-	// https://github.com/http4s/http4s-dom
-		// libraryDependencies += "org.http4s" %%% "http4s-dom" % "1.0.0-M29",
+		// https://github.com/http4s/http4s-dom
+		libraryDependencies += "org.http4s" %%% "http4s-dom" % "1.0.0-M29",
 		// libraryDependencies += "n3js" %%% "n3js" % "0.1-SNAPSHOT",
 		libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.0.0",
 		resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
@@ -89,7 +89,7 @@ lazy val app = project.in(file("app"))
 		fastOptJS / webpackConfigFile := Some(baseDirectory.value / "webpack.config.dev.js"),
 		fastOptJS / webpackBundlingMode := BundlingMode.LibraryOnly(), // https://scalacenter.github.io/scalajs-bundler/cookbook.html#performance
 	   //emitSourceMaps := false
-	)//.dependsOn(n3js)
+	).dependsOn(n3js)
 
 lazy val n3jsDir = Path("n3js").asFile.getAbsoluteFile()
 //project to use when we want to create code from the TypeScript Template for N3
