@@ -50,9 +50,13 @@ resolvers += "jitpack" at "https://jitpack.io"
 //)
 
 lazy val app = project.in(file("app"))
-	.enablePlugins(ScalaJSBundlerPlugin)
+   // note enabling the bundler changes what js needs to be called https://github.com/scalacenter/scalajs-bundler/issues/193
+	// .enablePlugins(ScalaJSBundlerPlugin)
+	.enablePlugins(ScalaJSPlugin)
+	//perhaps instead if the ScalaJSPlugin I should use https://github.com/vmunier/sbt-web-scalajs
 	.settings(commonSettings:_*)
 	.settings(
+		description := "The Solid App",
 	// https://github.com/http4s/http4s-dom
 		// libraryDependencies += "org.http4s" %%% "http4s-dom" % "1.0.0-M29",
 		// libraryDependencies += "n3js" %%% "n3js" % "0.1-SNAPSHOT",
@@ -61,12 +65,14 @@ lazy val app = project.in(file("app"))
 		// useYarn := true, // makes scalajs-bundler use yarn instead of npm
 		Test / requireJsDomEnv := true,
 		scalaJSUseMainModuleInitializer := true,
-		scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)), // configure Scala.js to emit a JavaScript module instead of a top-level script
+		// with ComminJSModule set one gets "exports is not defined" problem when just trying to call js from html
+		// scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)), // configure Scala.js to emit a JavaScript module instead of a top-level script
+		// scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.ESModule) }, //does not work because we are using ScalaJSBundlerPlugin
 		jsEnv := new NodeJSEnv(NodeJSEnv.Config().withArgs(List("--dns-result-order=ipv4first"))),
 
-		//this is only needed for run, should be moved to tests when tests are working
-		Compile / npmDependencies += "node-fetch" -> "3.1.0",
-		Compile / npmDependencies += "jsdom" -> "18.1.1",
+		// this is only needed for run, should be moved to tests when tests are working
+		// Compile / npmDependencies += "node-fetch" -> "3.1.0",
+		// Compile / npmDependencies += "jsdom" -> "18.1.1",
 
 		// https://webpack.github.io
 		// https://github.com/webpack/webpack

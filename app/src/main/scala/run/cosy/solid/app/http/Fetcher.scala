@@ -1,4 +1,4 @@
-package solidapp
+package run.cosy.solid.app.http
 
 // import cats.effect.*
 // import cats.effect.unsafe.implicits.*
@@ -9,9 +9,9 @@ package solidapp
 // import org.http4s.Method.GET
 // import org.http4s.MediaType.text.turtle
 // import cats.effect.IO
-// import scala.scalajs.js.annotation.JSExportTopLevel
+import scala.scalajs.js.annotation.{JSExport,JSExportTopLevel}
 
-
+@JSExportTopLevel("Fetcher")
 object Fetcher {
 	import org.scalajs.dom
 	import org.scalajs.dom.document
@@ -26,8 +26,8 @@ object Fetcher {
 	// )
 	// // clnt.run(req)
 	// lazy val answer: IO[String] = clnt.expect[String](req)
-
-	// @JSExportTopLevel("addClickedMessage")
+	
+	@JSExport
 	def addClickedMessage(): Unit = 
 		appendPar(document.body, "You clicked the button!")
 	
@@ -36,7 +36,6 @@ object Fetcher {
 		parNode.textContent = text
 		targetNode.appendChild(parNode)
 	
-
 	def main(args: Array[String]): Unit =
 		appendPar(document.body, "Hello World")
 		// document.
