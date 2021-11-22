@@ -7,6 +7,9 @@ scalaVersion := Ver.scala
 
 import org.scalajs.jsenv.nodejs.NodeJSEnv
 
+jsEnv := new net.exoego.jsenv.jsdomnodejs.JSDOMNodeJSEnv()
+//jsEnv := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv()
+
 lazy val commonSettings = Seq(
    name := "Solid App",
    version := "0.1-SNAPSHOT",
@@ -51,14 +54,19 @@ lazy val app = project.in(file("app"))
 	.settings(commonSettings:_*)
 	.settings(
 	// https://github.com/http4s/http4s-dom
-		libraryDependencies += "org.http4s" %%% "http4s-dom" % "1.0.0-M29",
-		libraryDependencies += "n3js" %%% "n3js" % "0.1-SNAPSHOT",
+		// libraryDependencies += "org.http4s" %%% "http4s-dom" % "1.0.0-M29",
+		// libraryDependencies += "n3js" %%% "n3js" % "0.1-SNAPSHOT",
+		libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.0.0",
 		resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
 		// useYarn := true, // makes scalajs-bundler use yarn instead of npm
 		Test / requireJsDomEnv := true,
 		scalaJSUseMainModuleInitializer := true,
 		scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)), // configure Scala.js to emit a JavaScript module instead of a top-level script
 		jsEnv := new NodeJSEnv(NodeJSEnv.Config().withArgs(List("--dns-result-order=ipv4first"))),
+
+		//this is only needed for run, should be moved to tests when tests are working
+		Compile / npmDependencies += "node-fetch" -> "3.1.0",
+		Compile / npmDependencies += "jsdom" -> "18.1.1",
 
 		// https://webpack.github.io
 		// https://github.com/webpack/webpack
@@ -69,13 +77,13 @@ lazy val app = project.in(file("app"))
 
 		// https://github.com/scalacenter/scalajs-bundler/issues/385#issuecomment-756243511
 		webpackEmitSourceMaps := false,
-		
+
 		webpackDevServerExtraArgs := Seq("--color"),
 		webpackDevServerPort := 8080,
-	   /* fastOptJS */ webpackConfigFile := Some(baseDirectory.value / "webpack.config.dev.js"),
-		// fastOptJS / webpackBundlingMode := BundlingMode.LibraryOnly(), // https://scalacenter.github.io/scalajs-bundler/cookbook.html#performance
-	   // emitSourceMaps := false
-	).dependsOn(n3js)
+		fastOptJS / webpackConfigFile := Some(baseDirectory.value / "webpack.config.dev.js"),
+		fastOptJS / webpackBundlingMode := BundlingMode.LibraryOnly(), // https://scalacenter.github.io/scalajs-bundler/cookbook.html#performance
+	   //emitSourceMaps := false
+	)//.dependsOn(n3js)
 
 lazy val n3jsDir = Path("n3js").asFile.getAbsoluteFile()
 //project to use when we want to create code from the TypeScript Template for N3
