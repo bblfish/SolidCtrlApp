@@ -12,5 +12,11 @@ module.exports.devServer = {
     watchContentBase: true,
     hot: false,
     hotOnly: false, // only reload when build is successful
-    inline: true // live reloading
+    inline: true, // live reloading
+};
+
+module.exports.resolve = {
+	fallback : {
+		buffer: false,
+	},
 };

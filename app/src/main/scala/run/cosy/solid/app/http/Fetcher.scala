@@ -34,6 +34,7 @@ object Fetcher {
 	@JSExport
 	def addClickedMessage(): Unit = 
 		appendPar(document.body, "You clicked the button!")
+		onClick()
 	
 	def appendPar(targetNode: dom.Node, text: String): Unit =
 		val parNode = document.createElement("p")
@@ -42,17 +43,23 @@ object Fetcher {
 	
 	def main(args: Array[String]): Unit =
 		appendPar(document.body, "Hello World")
+
+	def onClick() =	
+		println("in onClick")
 		val utfStr: fs2.Stream[cats.effect.IO, String] = clnt.stream(req).flatMap(_.body)
 			.through(text.utf8.decode)
+		println("in onClick - got utfStr")
 	
-		val ios: fs2.Stream[cats.effect.IO, INothing] = utfStr
-			// .through(N3Parser.parse)
+		val ios: fs2.Stream[cats.effect.IO, INothing] = utfStr.through(N3Parser.parse)
 			.foreach { triple => 
+				println(triple)
 				IO(appendPar(document.body, triple.toString))
 			}
+		println("in onClick - got ios")
+
 		ios.compile.lastOrError.unsafeRunAsync{
 			case Left(err)     => appendPar(document.body, err.toString)
-			case Right(answer) => appendPar(document.body, answer)
+			case Right(answer) => appendPar(document.body, "good answer")
 		}
 
 //	cl.expect

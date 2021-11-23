@@ -24,38 +24,42 @@ class Lexer() extends StObject:
 //   def tokenize(input: EventEmitter, callback: TokenCallback): Unit = js.native
 
   //
-  //function set in the Lexer object, and other variables we need access to.
-  //
-
-  def setCallback(callback: TokenCallback): Unit = js.native
-
-  //this function is added during object creation
-  def tokenizeChunk(input: String, inputFinished: Boolean): Unit = js.native
-  //
-  // protectedf functions and vars we need access to in our code
+  // protected functions and vars we need access to in our code
   //
   var _line: Int = js.native
   var _input: js.UndefOr[String] = js.native
   var _callback: js.UndefOr[TokenCallback] = js.native
   def _tokenizeToEnd(callback: TokenCallback, inputFinished: Boolean): Unit = js.native
 
+  //
+  // functions we create 
+  // 
+  var setCallback: js.ThisFunction1[Lexer,TokenCallback, Unit] = js.native
+
+  //this function is added during object creation
+  def tokenizeChunk(input: String, inputFinished: Boolean): Unit = js.native
+
 end Lexer
 
 object Lexer:
 	def apply(options: LexerOptions = LexerOptions()): Lexer =
+		println("Lexer: Hello")
 		val lex: Lexer = new Lexer(options)
 		lex._input = ""
 		//could one set these on the prototype?
 		lex.asInstanceOf[js.Dynamic].updateDynamic("setCallback")(setCallback)
 		lex.asInstanceOf[js.Dynamic].updateDynamic("tokenizeChunk")(tokenizeChunk)
+		println("Lexer created")
 		lex
 
 	//must be called on initialisation
 	val setCallback: js.ThisFunction1[Lexer, TokenCallback, Unit] =
 		(thiz: Lexer, tokCbk: TokenCallback) => 
+			println("Lexer.setCallback start")
 			thiz._line = 1
 			thiz._input = ""
 			thiz._callback = tokCbk
+			println("Lexer.setCallback end")
 			()
 
 	//this is the function f in `input.on('data', f)`			

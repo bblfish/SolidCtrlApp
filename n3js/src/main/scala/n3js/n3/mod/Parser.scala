@@ -22,27 +22,34 @@ class Parser() extends StObject {
 //	 def parse(input: String, callback: Null, prefixCallback: PrefixCallback): js.Array[Q] = js.native
 //	 def parse(input: String, callback: Unit, prefixCallback: PrefixCallback): js.Array[Q] = js.native
 
-	//
-	// functions we add
-	//
 
-	def setCallback(callback: ParseCallback): Unit = js.native
-	
-	// send the next string chunk to this parser. Need to create this method on construction.
-	def parseChunk(chunk: String, end: Boolean): Unit = js.native
-
+	//
+	// existing JS fields we make explicit
+	//
 
 	val _readInTopContext: js.ThisFunction1[Parser,Token,TokenFn] = js.native
-
 	var _readCallback: TokenFn = js.native
-	var _callback: ParseCallback = js.native
-
 	var _sparqlStyle: Boolean = js.native
+	var _callback: ParseCallback = js.native
 	var _prefixes: js.Object = js.native
 	var _prefixCallback: PrefixCallback = js.native
 	var _quantified: js.Object = js.native
 	var _inversePredicate: Boolean = js.native
 	var _lexer: Lexer = js.native
+
+
+	//
+	// functions we add
+	//
+
+	var setCallbacks : js.ThisFunction2[Parser, ParseCallback, PrefixCallback, Unit] = js.native
+	
+	// send the next string chunk to this parser. Need to create this method on construction.
+	def parseChunk(chunk: String, end: Boolean): Unit = js.native
+
+
+
+
 
 }
 
@@ -51,13 +58,17 @@ object Parser:
 
 	def apply(options: ParserOptions): Parser = 
 		val p = new Parser(options)
-		p.asInstanceOf[js.Dynamic].updateDynamic("setCallback")(setCallback)
+		println("Parser Hello")
+		p.asInstanceOf[js.Dynamic].updateDynamic("setCallbacks")(setCallbacks)
 		p.asInstanceOf[js.Dynamic].updateDynamic("parseChunk")(parseChunk)
+		p._lexer = Lexer()
+		println("Parser created")
 		p
 
 	//must be called on initialisation
-	val setCallback : js.ThisFunction2[Parser, ParseCallback, PrefixCallback, Unit] = 
+	val setCallbacks : js.ThisFunction2[Parser, ParseCallback, PrefixCallback, Unit] = 
 		(thiz: Parser, cbk: ParseCallback, preCbk: PrefixCallback) => 
+			println("Parser.setCallbacks hello")
 			thiz._readCallback = thiz._readInTopContext
 			thiz._sparqlStyle = false
 			thiz._prefixes = new js.Object()
@@ -73,7 +84,8 @@ object Parser:
 				else if tok.isDefined then
 					thiz._readCallback = thiz._readCallback(thiz, tok.get).asInstanceOf[TokenFn]
 				else thiz._callback(new js.Error("don't have a callback to continue parsing"), js.undefined, js.undefined)	
-			thiz._lexer.setCallback(callbackFn)
+			thiz._lexer.setCallback(thiz._lexer, callbackFn)
+			println("Parser.setCallbacks done")
 			()		
 
 	val noopCallback: ParseCallback = 
@@ -82,6 +94,7 @@ object Parser:
 	//this is the function f in `input.on('data', f)`			
 	val parseChunk: js.ThisFunction2[Parser, String, Boolean, Unit] = 
 		(thiz: Parser, chunk: String, end: Boolean) => 
+			println("parsing chunk of length "+chunk.length)
 			thiz._lexer.tokenizeChunk(chunk,end)
 			()	
 	
