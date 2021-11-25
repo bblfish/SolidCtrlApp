@@ -43,31 +43,26 @@ end Lexer
 
 object Lexer:
 	def apply(options: LexerOptions = LexerOptions()): Lexer =
-		println("Lexer: Hello")
 		val lex: Lexer = new Lexer(options)
 		lex._input = ""
 		//could one set these on the prototype?
 		lex.asInstanceOf[js.Dynamic].updateDynamic("setCallback")(setCallback)
 		lex.asInstanceOf[js.Dynamic].updateDynamic("tokenizeChunk")(tokenizeChunk)
-		println("Lexer created")
 		lex
 
 	//must be called on initialisation
 	val setCallback: js.ThisFunction1[Lexer, TokenCallback, Unit] =
 		(thiz: Lexer, tokCbk: TokenCallback) => 
-			println("Lexer.setCallback start")
 			thiz._line = 1
 			thiz._input = ""
 			thiz._callback = tokCbk
-			println("Lexer.setCallback end")
 			()
 
 	//this is the function f in `input.on('data', f)`			
 	val tokenizeChunk: js.ThisFunction2[Lexer, String, Boolean, Unit] =
-		(thiz: Lexer, chunk: String, end: Boolean) => 
-			thiz._input =  thiz._input.orElse("").map(_ + chunk)
+		(thiz: Lexer, chunk: String, end: Boolean) =>
+			thiz._input = thiz._input.getOrElse("") + chunk
 			thiz._callback.map(tcb => thiz._tokenizeToEnd(tcb, end))
 			()
-		
 
 end Lexer

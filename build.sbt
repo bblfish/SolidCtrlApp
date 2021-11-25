@@ -93,7 +93,7 @@ lazy val app = project.in(file("app"))
 		// fastOptJS / webpackBundlingMode := BundlingMode.LibraryOnly(), // https://scalacenter.github.io/scalajs-bundler/cookbook.html#performance
 	).dependsOn(n3js) 
 
-lazy val n3jsDir = Path("n3js").asFile.getAbsoluteFile()
+lazy val n3jsDir = Path("n3js").asFile.getAbsoluteFile
 //project to use when we want to create code from the TypeScript Template for N3
 // https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/n3
 // lazy val n3jsST = project.in(n3jsDir/"ST")
@@ -125,8 +125,10 @@ lazy val n3js = project.in(n3jsDir)
 		// useYarn := true, // makes scalajs-bundler use yarn instead of npm
 		// Test / requireJsDomEnv := true,
 		// scalaJSUseMainModuleInitializer := true,
-		scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)), // configure Scala.js to emit a JavaScript module instead of a top-level script
-
+		// scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)), // configure Scala.js to emit a JavaScript module instead of a top-level script
+		// ESModule cannot be used because we are using ScalaJSBundlerPlugin
+		// scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.ESModule) }, 
+	
 		// https://github.com/rdfjs/N3.js/
 		// do I also need to run `npm install n3` ?
 		Compile / npmDependencies += "n3" -> "1.11.2",

@@ -45,17 +45,13 @@ object Fetcher {
 		appendPar(document.body, "Hello World")
 
 	def onClick() =	
-		println("in onClick")
 		val utfStr: fs2.Stream[cats.effect.IO, String] = clnt.stream(req).flatMap(_.body)
 			.through(text.utf8.decode)
-		println("in onClick - got utfStr")
 	
 		val ios: fs2.Stream[cats.effect.IO, INothing] = utfStr.through(N3Parser.parse)
 			.foreach { triple => 
-				println(triple)
 				IO(appendPar(document.body, triple.toString))
 			}
-		println("in onClick - got ios")
 
 		ios.compile.lastOrError.unsafeRunAsync{
 			case Left(err)     => appendPar(document.body, err.toString)
