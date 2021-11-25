@@ -17,6 +17,6 @@ module.exports.devServer = {
 
 module.exports.resolve = {
 	fallback : {
-		buffer: false,
+      "buffer": require.resolve("buffer/")
 	},
 };

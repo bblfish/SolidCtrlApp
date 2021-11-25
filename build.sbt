@@ -1,4 +1,5 @@
 import Dependencies._
+import scalajsbundler.sbtplugin.ScalaJSBundlerPlugin.autoImport.webpackConfigFile
 
 organization := "cosy.run"
 name := "SolidApp"
@@ -6,9 +7,6 @@ version := "0.1.0"
 scalaVersion := Ver.scala
 
 import org.scalajs.jsenv.nodejs.NodeJSEnv
-
-jsEnv := new net.exoego.jsenv.jsdomnodejs.JSDOMNodeJSEnv()
-//jsEnv := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv()
 
 lazy val commonSettings = Seq(
    name := "Solid App",
@@ -52,6 +50,7 @@ resolvers += "jitpack" at "https://jitpack.io"
 lazy val app = project.in(file("app"))
    // note enabling the bundler changes what js needs to be called https://github.com/scalacenter/scalajs-bundler/issues/193
 	// https://stackoverflow.com/questions/41904346/sscalajsmodulekind-modulekind-commonjsmodule-cannot-invoke-main-method-anym
+	// reference doc for Bundler: https://scalacenter.github.io/scalajs-bundler/reference.html
    .enablePlugins(ScalaJSBundlerPlugin)
 	.enablePlugins(ScalaJSPlugin)
 	//perhaps instead if the ScalaJSPlugin I should use https://github.com/vmunier/sbt-web-scalajs
@@ -62,18 +61,21 @@ lazy val app = project.in(file("app"))
 		libraryDependencies += "org.http4s" %%% "http4s-dom" % "1.0.0-M29",
 		libraryDependencies += "n3js" %%% "n3js" % "0.1-SNAPSHOT",
 		libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.0.0",
+		libraryDependencies += "org.scalameta" %%% "munit" % "1.0.0-M1" % Test,
 		resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
-		// useYarn := true, // makes scalajs-bundler use yarn instead of npm
-		// requireJsDomEnv := true,
-		// scalaJSUseMainModuleInitializer := true,
+
+//		libraryDependencies += "com.lihaoyi" %%% "utest" % "0.7.10" % Test,
+//		testFrameworks += new TestFramework("utest.runner.Framework"),
+
+//	 	useYarn := true, // makes scalajs-bundler use yarn instead of npm
+
 		// with ComminJSModule set one gets "exports is not defined" problem when just trying to call js from html
 		// scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)), // configure Scala.js to emit a JavaScript module instead of a top-level script
 		// scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.ESModule) }, //does not work because we are using ScalaJSBundlerPlugin
-		// jsEnv := new NodeJSEnv(NodeJSEnv.Config().withArgs(List("--dns-result-order=ipv4first"))),
 
 		// this is only needed for run, should be moved to tests when tests are working
 		// Compile / npmDependencies += "node-fetch" -> "3.1.0",
-		// Compile / npmDependencies += "jsdom" -> "18.1.1",
+		Test / npmDependencies += "jsdom" -> "18.1.1",
 
 		// https://webpack.github.io
 		// https://github.com/webpack/webpack
@@ -87,6 +89,17 @@ lazy val app = project.in(file("app"))
 		// needed to be able to have multiple entry points
 		// https://scalacenter.github.io/scalajs-bundler/cookbook.html#several-entry-points 
 		webpackBundlingMode := BundlingMode.LibraryAndApplication(),
+
+		//in order to be able to use run in sbt shell we need both the following (and scalajs-env-jsdom-nodejs in plugins)
+//		jsEnv := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv(),
+		//		 one could use the net.exoego fork? (then also change plugin)
+		jsEnv := new net.exoego.jsenv.jsdomnodejs.JSDOMNodeJSEnv(),
+		scalaJSUseMainModuleInitializer := true,
+
+		// https://scalacenter.github.io/scalajs-bundler/reference.html#jsdom
+		// it turns out that jsdDomEnv
+		Test / requireJsDomEnv  := true,
+
 		// webpackDevServerExtraArgs := Seq("--color"),
 		// webpackDevServerPort := 8080,
 		fastOptJS / webpackConfigFile := Some(baseDirectory.value / "webpack.config.dev.js"),

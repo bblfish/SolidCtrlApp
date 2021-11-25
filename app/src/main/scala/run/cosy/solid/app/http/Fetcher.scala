@@ -23,7 +23,7 @@ object Fetcher {
 	val clnt: client.Client[IO] = FetchClientBuilder[IO].create
 	// val rdfHeaders = org.http4s.Headers
 	import org.http4s.headers.*
-	import org.http4s.client.dsl.io.{given}
+	import org.http4s.client.dsl.io.given
 	val req: Request[IO] = GET(
 		uri"https://bblfish.net/people/henry/card",
 		Accept(turtle.withQValue(QValue.One))
@@ -42,9 +42,23 @@ object Fetcher {
 		targetNode.appendChild(parNode)
 	
 	def main(args: Array[String]): Unit =
-		appendPar(document.body, "Hello World")
+		document.addEventListener("DOMContentLoaded", { (e: dom.Event) =>
+			println(e)
+		})
 
-	def onClick() =	
+	def setupUI(): Unit = {
+		val button = document.createElement("button")
+		button.textContent = "Click me!"
+		button.addEventListener("click", { (e: dom.MouseEvent) =>
+			addClickedMessage()
+		})
+		document.body.appendChild(button)
+
+		appendPar(document.body, "Hello World")
+	}
+
+
+	def onClick(): Unit =
 		val utfStr: fs2.Stream[cats.effect.IO, String] = clnt.stream(req).flatMap(_.body)
 			.through(text.utf8.decode)
 	
