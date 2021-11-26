@@ -58,14 +58,7 @@ lazy val app = project.in(file("app"))
 	.settings(
 		description := "The Solid App",
 		// https://github.com/http4s/http4s-dom
-		libraryDependencies += "org.http4s" %%% "http4s-dom" % "1.0.0-M29",
-		libraryDependencies += "n3js" %%% "n3js" % "0.1-SNAPSHOT",
-		libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.0.0",
-		libraryDependencies += "org.scalameta" %%% "munit" % "1.0.0-M1" % Test,
-		resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
-
-//		libraryDependencies += "com.lihaoyi" %%% "utest" % "0.7.10" % Test,
-//		testFrameworks += new TestFramework("utest.runner.Framework"),
+		libraryDependencies ++= Seq(http4sDom.value, scalajsDom.value, munit.value),
 
 //	 	useYarn := true, // makes scalajs-bundler use yarn instead of npm
 
@@ -75,7 +68,7 @@ lazy val app = project.in(file("app"))
 
 		// this is only needed for run, should be moved to tests when tests are working
 		// Compile / npmDependencies += "node-fetch" -> "3.1.0",
-		Test / npmDependencies += "jsdom" -> "18.1.1",
+		Test / npmDependencies += NPM.jsDom,
 
 		// https://webpack.github.io
 		// https://github.com/webpack/webpack
@@ -128,26 +121,22 @@ lazy val n3js = project.in(n3jsDir)
 	.settings(
 		name := "N3js",
       // scalacOptions := scala3jsOptions,
-		libraryDependencies ++= Seq(
-		// https://github.com/http4s/http4s-dom
-		//https://search.maven.org/artifact/org.http4s/http4s-dom_sjs1_3/1.0.0-M29/jar
-		"org.http4s" %%% "http4s-dom" % "1.0.0-M29",
-		"net.bblfish.rdf" %%% "rdf-model-js" % "0.1a-SNAPSHOT"
-		),
-		resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
+		libraryDependencies ++= Seq(http4sDom.value, modelJS.value, munit.value),
+		resolvers += sonatypeSNAPSHOT,
 		// useYarn := true, // makes scalajs-bundler use yarn instead of npm
 		// Test / requireJsDomEnv := true,
 		// scalaJSUseMainModuleInitializer := true,
 		// scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)), // configure Scala.js to emit a JavaScript module instead of a top-level script
 		// ESModule cannot be used because we are using ScalaJSBundlerPlugin
 		// scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.ESModule) }, 
-	
+
+//		fastOptJS / webpackConfigFile := Some(baseDirectory.value / "webpack.config.dev.js"),
+
 		// https://github.com/rdfjs/N3.js/
 		// do I also need to run `npm install n3` ?
-		Compile / npmDependencies += "n3" -> "1.11.2",
-		Test / npmDependencies += "n3" -> "1.11.2",
-		jsEnv := new NodeJSEnv(NodeJSEnv.Config().withArgs(List("--dns-result-order=ipv4first"))),
-	)	
+		Compile / npmDependencies += NPM.n3,
+		Test / npmDependencies += NPM.n3,
+	)
 
 // hot reloading configuration:
 // https://github.com/scalacenter/scalajs-bundler/issues/180
