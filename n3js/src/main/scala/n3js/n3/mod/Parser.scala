@@ -85,7 +85,7 @@ object Parser:
 
 	//this is the function f in `input.on('data', f)`			
 	val parseChunk: js.ThisFunction2[Parser, String, Boolean, Unit] = 
-		(thiz: Parser, chunk: String, end: Boolean) => 
+		(thiz: Parser, chunk: String, end: Boolean) =>
 			thiz._lexer.tokenizeChunk(chunk,end)
 			()	
 	
