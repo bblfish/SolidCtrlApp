@@ -58,7 +58,7 @@ lazy val app = project.in(file("app"))
 	.settings(
 		description := "The Solid App",
 		// https://github.com/http4s/http4s-dom
-		libraryDependencies ++= Seq(http4sDom.value, scalajsDom.value, munit.value),
+		libraryDependencies ++= Seq(http4sDom.value, scalajsDom.value, munit.value, bananaRdfLib.value),
 
 //	 	useYarn := true, // makes scalajs-bundler use yarn instead of npm
 
