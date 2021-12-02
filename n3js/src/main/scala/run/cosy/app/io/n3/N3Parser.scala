@@ -41,9 +41,9 @@ object N3Parser {
 			prefixes: js.UndefOr[n3js.n3.mod.Prefixes[NamedNode]]
 		) =>
 			if err != null && err.isDefined then terminated = true
-			else if quad.isDefined then
+			else if quad != null && quad.isDefined then
 				quads = quad.get :: quads
-			else if prefixes.isDefined then terminated = true
+			else if prefixes != null && prefixes.isDefined then terminated = true
 		//else terminated = true ?
 
 	end ParserState //class

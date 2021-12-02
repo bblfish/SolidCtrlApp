@@ -7,8 +7,9 @@ import org.http4s.MediaType.text.turtle
 import org.http4s.Method.GET
 import org.http4s.dom.*
 import org.http4s.implicits.*
-import org.http4s.{QValue, Request, client}
+import org.http4s.{ParseResult, QValue, Request, Uri, client}
 import run.cosy.app.io.n3.N3Parser
+
 
 import java.nio.charset.Charset
 import scala.scalajs.js.annotation.{JSExport, JSExportTopLevel}
@@ -18,6 +19,7 @@ object Fetcher {
 
 	import org.scalajs.dom
 	import org.scalajs.dom.document
+	import dom.html
 
 	val clnt: client.Client[IO] = FetchClientBuilder[IO].create
 	// val rdfHeaders = org.http4s.Headers
@@ -25,17 +27,25 @@ object Fetcher {
 	import org.http4s.client.dsl.io.given
 	import org.http4s.headers.*
 
-	val req: Request[IO] = GET(
-		uri"https://bblfish.net/people/henry/card",
-		Accept(turtle.withQValue(QValue.One))
-	)
+	def req(uri: Uri): Request[IO] = GET(uri, Accept(turtle.withQValue(QValue.One)))
 
-	lazy val answer: IO[String] = clnt.expect[String](req)
+	def input: html.Input = document.getElementById("url").asInstanceOf[html.Input]
+
+	def urlEntry(): ParseResult[Uri] =
+		val urlStr = input.value
+		println("URL="+urlStr)
+		Uri.fromString(urlStr)
 
 	@JSExport
 	def addClickedMessage(): Unit =
-		appendPar(document.body, "You clicked the button!")
-		onClick()
+		val url: ParseResult[Uri] = urlEntry()
+		url.fold(
+			fail => appendPar(document.body, "could not parse url "+fail),
+			uri =>  {
+				appendPar(document.body, "You clicked to fetch "+uri)
+				onClick(uri)
+			}
+		)
 
 	def appendPar(targetNode: dom.Node, text: String): Unit =
 		val parNode = document.createElement("p")
@@ -55,17 +65,17 @@ object Fetcher {
 		})
 		document.body.appendChild(button)
 
-		appendPar(document.body, "Hello World")
+		appendPar(document.body,"Hello World")
 	}
 
 
-	def onClick(): Unit =
-		val utfStr: fs2.Stream[cats.effect.IO, String] = clnt.stream(req).flatMap(_.body)
+	def onClick(uri: Uri): Unit =
+		val utfStr: fs2.Stream[cats.effect.IO, String] = clnt.stream(req(uri)).flatMap(_.body)
 			.through(text.utf8.decode)
 
 		val ios: fs2.Stream[cats.effect.IO, INothing] = utfStr.through(N3Parser.parse)
-			.foreach { triple =>
-				IO(appendPar(document.body, triple.toString))
+			.chunks.foreach{ chunk =>
+				IO(appendPar(document.body, s"chunk size ${chunk.size} starts with ${chunk.head}"))
 			}
 
 		ios.compile.lastOrError.unsafeRunAsync {

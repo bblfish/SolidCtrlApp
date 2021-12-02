@@ -3,7 +3,7 @@ files should be used.
 
 ## 1. No ScalaJSBundlerPlugin
 
-If no ScalaJSBunderPlugin is set then the files generated on calling 
+If no ScalaJSBundlerPlugin is set then the files generated on calling 
 ```scala
 > fastLinkJS
 ```
