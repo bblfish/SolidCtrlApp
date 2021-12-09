@@ -47,6 +47,38 @@ resolvers += "jitpack" at "https://jitpack.io"
 //  "org.scalatest" %%% "scalatest" % "3.2.9" % Test
 //)
 
+lazy val authN = project.in(file("authn"))
+	.settings(commonSettings:_*)
+	.enablePlugins(ScalaJSPlugin)
+	.enablePlugins(ScalaJSBundlerPlugin)
+	.settings(
+		name := "authN",
+		description := "Authentication Lib for Apps",
+		// scalacOptions := scala3jsOptions,
+		libraryDependencies ++= Seq(http4s.client.value),
+		libraryDependencies ++= Seq(
+			munit.value % Test,
+			cats.munitEffect.value % Test,
+			http4s.server.value % Test,
+			http4s.client.value % Test,
+			http4s.theDsl.value % Test
+		),
+//		// useYarn := true, // makes scalajs-bundler use yarn instead of npm
+		// Test / requireJsDomEnv := true,
+		// scalaJSUseMainModuleInitializer := true,
+		// scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)), // configure Scala.js to emit a JavaScript module instead of a top-level script
+		// ESModule cannot be used because we are using ScalaJSBundlerPlugin
+		// scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.ESModule) },
+
+		//		fastOptJS / webpackConfigFile := Some(baseDirectory.value / "webpack.config.dev.js"),
+
+		// https://github.com/rdfjs/N3.js/
+		// do I also need to run `npm install n3` ?
+		Compile / npmDependencies += NPM.n3,
+		Test / npmDependencies += NPM.n3,
+	)
+
+
 lazy val app = project.in(file("app"))
    // note enabling the bundler changes what js needs to be called https://github.com/scalacenter/scalajs-bundler/issues/193
 	// https://stackoverflow.com/questions/41904346/sscalajsmodulekind-modulekind-commonjsmodule-cannot-invoke-main-method-anym
@@ -57,10 +89,10 @@ lazy val app = project.in(file("app"))
 	.settings(commonSettings:_*)
 	.settings(
 		description := "The Solid App",
-		// https://github.com/http4s/http4s-dom
-		libraryDependencies ++= Seq(http4sDom.value, scalajsDom.value, munit.value, bananaRdfLib.value),
+		libraryDependencies ++= Seq(http4s.Dom.value, scalajsDom.value, bananaRdfLib.value),
+		libraryDependencies += munit.value % Test,
 
-//	 	useYarn := true, // makes scalajs-bundler use yarn instead of npm
+		//	 	useYarn := true, // makes scalajs-bundler use yarn instead of npm
 
 		// with ComminJSModule set one gets "exports is not defined" problem when just trying to call js from html
 		// scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)), // configure Scala.js to emit a JavaScript module instead of a top-level script
@@ -121,7 +153,7 @@ lazy val n3js = project.in(n3jsDir)
 	.settings(
 		name := "N3js",
       // scalacOptions := scala3jsOptions,
-		libraryDependencies ++= Seq(http4sDom.value, modelJS.value, munit.value),
+		libraryDependencies ++= Seq(http4s.Dom.value, modelJS.value, munit.value),
 		resolvers += sonatypeSNAPSHOT,
 		// useYarn := true, // makes scalajs-bundler use yarn instead of npm
 		// Test / requireJsDomEnv := true,
