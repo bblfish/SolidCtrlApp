@@ -14,13 +14,13 @@ import org.http4s.server.{AuthMiddleware, Router}
 import org.http4s.syntax.all.*
 import org.http4s.{AuthedRoutes, BasicCredentials, Challenge, Headers, HttpRoutes, Request, Response, Status, Uri}
 import org.typelevel.ci.*
-import run.cosy.app.auth.AuthN
+import run.cosy.app.auth.AuthNClient
 
 import java.util.concurrent.atomic.*
 
 case class User(id: Long, name: String)
 
-class AuthNTest extends munit.CatsEffectSuite {
+class AuthNClientTest extends munit.CatsEffectSuite {
 
 	val realm = "Test Realm"
 	val username = "Test User"
@@ -42,7 +42,6 @@ class AuthNTest extends munit.CatsEffectSuite {
 		}
 
 	val basicAuthMiddleware: AuthMiddleware[IO, String] = BasicAuth(realm, validatePassword)
-
 
 	//
 	// test server
@@ -110,12 +109,12 @@ class AuthNTest extends munit.CatsEffectSuite {
 		// test with client now
 		val defaultClient: Client[IO] = Client.fromHttpApp(routes.orNotFound)
 		//		val logedClient: Client[IO] = ResponseLogger[IO](true, true, logAction = Some(s => IO(println(s))))(defaultClient)
-		val client: Client[IO] = AuthN[IO](AuthN.basicWallet(
-			Map(Uri.RegName("localhost") -> new AuthN.BasicId(username, password))
+		val client: Client[IO] = AuthNClient[IO](AuthNClient.basicWallet(
+			Map(Uri.RegName("localhost") -> new AuthNClient.BasicId(username, password))
 		))(defaultClient)
 
-		val clientBad: Client[IO] = AuthN[IO](AuthN.basicWallet(
-			Map(Uri.RegName("localhost") -> new AuthN.BasicId(username, password + "bad"))
+		val clientBad: Client[IO] = AuthN[IO](AuthNClient.basicWallet(
+			Map(Uri.RegName("localhost") -> new AuthNClient.BasicId(username, password + "bad"))
 		))(defaultClient)
 
 		test("Wallet Based Auth") {
