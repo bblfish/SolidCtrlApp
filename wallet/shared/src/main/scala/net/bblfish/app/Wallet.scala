@@ -16,14 +16,17 @@
 
 package net.bblfish.app
 
+import io.lemonlabs.uri as ll
 import org.http4s.{Request, Response}
 
 import scala.util.Try
 
 trait Wallet[F[_]] {
 
-  /** if possible, sign the original request given the information provided by
-    * the 40x response
+  /** if possible, sign the original request given the information provided by the 40x response.
+    *
+    * Note: For this to work, I think we need to assume that the URL in the Request is absolute. see
+    * [[https://github.com/http4s/http4s/discussions/5930#discussioncomment-3777066 cats-uri discussion]]
     */
-  def sign(res: Response[F], req: Request[F]): F[Try[Request[F]]]
+  def sign(res: Response[F], req: Request[F]): F[Request[F]]
 }

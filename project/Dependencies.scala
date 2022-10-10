@@ -5,22 +5,26 @@ object Dependencies {
   object Ver {
     val scala = "3.1.3"
     val http4s = "1.0.0-M37"
-    val banana = "0.9-1f08fd1-20220922T205810Z-SNAPSHOT"
-    val bobcats = "0.2-69106e6-SNAPSHOT"
+    val banana = "0.9-41c7766-SNAPSHOT"
+    val bobcats = "0.2-7a91946-SNAPSHOT"
   }
 
-  //https://http4s.org/v1.0/client/
+  object other {
+    // https://github.com/lemonlabsuk/scala-uri
+    val scalaUri = Def.setting("io.lemonlabs" %%% "scala-uri" % "4.0.2")
+  }
+  // https://http4s.org/v1.0/client/
   object http4s {
     def apply(packg: String): Def.Initialize[sbt.ModuleID] =
       Def.setting("org.http4s" %%% packg % Ver.http4s)
     lazy val core = http4s("http4s-core")
     lazy val client = http4s("http4s-client")
     // ember is an implementation of the client.
-    lazy val ember = http4s("http4s-ember-client")
+    lazy val ember_client = http4s("http4s-ember-client")
     lazy val server = http4s("http4s-server")
     lazy val theDsl = http4s("http4s-dsl")
     // https://github.com/http4s/http4s-dom
-    //https://search.maven.org/artifact/org.http4s/http4s-dom_sjs1_3/1.0.0-M29/jar
+    // https://search.maven.org/artifact/org.http4s/http4s-dom_sjs1_3/1.0.0-M29/jar
     lazy val Dom = Def.setting("org.http4s" %%% "http4s-dom" % "1.0.0-M36")
   }
 
@@ -32,11 +36,14 @@ object Dependencies {
 
   object crypto {
     // https://oss.sonatype.org/content/repositories/snapshots/net/bblfish/crypto/bobcats_3/
-    lazy val bobcats =
-      Def.setting("net.bblfish.crypto" %% "bobcats" % Ver.bobcats)
     lazy val http4sSig = Def.setting(
-      "net.bblfish.crypto" %% "http4s-http-signature" % "0.2-742b170-20220929T185523Z-SNAPSHOT"
+      "net.bblfish.crypto" %% "http4s-http-signature" % "0.2-4233c03-SNAPSHOT"
     )
+    lazy val nimbusJWT = Def.setting("com.nimbusds" % "nimbus-jose-jwt" % "9.25.4")
+    lazy val bouncyJCA = Def.setting("org.bouncycastle" % "bcpkix-jdk18on" % "1.72")
+    // https://oss.sonatype.org/content/repositories/snapshots/net/bblfish/crypto/bobcats_3/
+    lazy val bobcats =
+      Def.setting("net.bblfish.crypto" %%% "bobcats" % "0.2-7a91946-SNAPSHOT")
   }
 
   // not published yet
@@ -54,7 +61,7 @@ object Dependencies {
 
   val modelJS =
     Def.setting("net.bblfish.rdf" %%% "rdf-model-js" % "0.2-dbfa81d-SNAPSHOT")
-  //needed for modelJS
+  // needed for modelJS
   val sonatypeSNAPSHOT: MavenRepository =
     "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 

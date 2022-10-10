@@ -18,32 +18,44 @@ package net.bblfish.wallet
 
 import bobcats.*
 import cats.data.NonEmptyList
-import cats.effect.{Clock, Concurrent, IO}
+import cats.effect.Clock
+import cats.effect.Concurrent
+import cats.effect.IO
 import cats.implicits.*
 import io.lemonlabs.uri as ll
+import io.lemonlabs.uri.Url
 import net.bblfish.app.Wallet
 import org.http4s.*
-import org.http4s.client.Client
-import org.http4s.headers.{Authorization, *}
 import org.http4s.BasicCredentials
+import org.http4s.client.Client
+import org.http4s.headers.*
+import org.http4s.headers.Authorization
+import org.w3.banana.Ops
+import org.w3.banana.RDF
 import org.w3.banana.http4sIO.RDFDecoders
-import org.w3.banana.io.{JsonLd, RDFReader, Turtle}
+import org.w3.banana.io.JsonLd
+import org.w3.banana.io.RDFReader
+import org.w3.banana.io.Turtle
 import org.w3.banana.prefix.Cert
 import org.w3.banana.prefix.WebACL
 import org.w3.banana.prefix.WebACL.apply
-import org.w3.banana.{Ops, RDF}
-import run.cosy.http.headers.Rfc8941.{IList, SfInt}
-import run.cosy.http.headers.{Rfc8941, SelectorOps, SigInput}
-import scodec.bits.ByteVector
-import run.cosy.http4s.auth.Http4sMessageSignature
-import run.cosy.http.headers.MessageSelector
+import run.cosy.http.Http
 import run.cosy.http.headers.DictSelector
+import run.cosy.http.headers.MessageSelector
+import run.cosy.http.headers.Rfc8941
+import run.cosy.http.headers.Rfc8941.IList
+import run.cosy.http.headers.Rfc8941.SfInt
+import run.cosy.http.headers.SelectorOps
+import run.cosy.http.headers.SigInput
+import run.cosy.http4s.Http4sTp.H4
+import run.cosy.http4s.auth.Http4sMessageSignature
 import run.cosy.http4s.headers.BasicHeaderSelector
 import run.cosy.http4s.headers.Http4sDictSelector
-import run.cosy.http4s.Http4sTp.H4
-import run.cosy.http.Http
 
-import scala.util.{Failure, Try}
+import scala.reflect.TypeTest
+import scala.util.Failure
+import scala.util.Try
+import scodec.bits.ByteVector
 
 class BasicId(val username: String, val password: String)
 
@@ -53,21 +65,23 @@ class BasicId(val username: String, val password: String)
  *    so that it can be added when needed as `alg="..."` to the
  *    signature. (It should also be found in the remote jwt)
  * */
-class KeyId[F[_]: Concurrent : Clock, Rdf <: RDF](
-  val keyId: RDF.URI[Rdf],
-  val signer: F[ByteVector => F[ByteVector]],
-  val alg: String = "" ):
- 
-  //wrapped in an F, because of clock
+class KeyId[F[_]: Concurrent: Clock, Rdf <: RDF](
+    val keyId: RDF.URI[Rdf],
+    val signer: F[ByteVector => F[ByteVector]],
+    val alg: String = ""
+):
+
+  // wrapped in an F, because of clock
   // is this a val or a function? A val should do...
   def mkSigInput(): F[SigInput] =
     for
       t <- summon[Clock[F]].realTime
       si <- summon[Concurrent[F]].fromOption(
-         SigInput(IList()(SigInput.createdTk -> SfInt(t.toSeconds))),
-         Exception("SigInput template faulty")) //todo: we need a SigInputBuilder
+        SigInput(IList()(SigInput.createdTk -> SfInt(t.toSeconds))),
+        Exception("SigInput template faulty")
+      ) // todo: we need a SigInputBuilder
     yield si
-    
+
 end KeyId
 
 /*
@@ -79,7 +93,7 @@ end KeyId
  */
 class BasicWallet[F[_], Rdf <: RDF](
     db: Map[ll.Authority, BasicId],
-    keyIdDB: Map[RDF.URI[Rdf], KeyId[F, Rdf]]
+    keyIdDB: Seq[KeyId[F, Rdf]]
 )(using
     client: Client[F],
     ops: Ops[Rdf],
@@ -87,61 +101,79 @@ class BasicWallet[F[_], Rdf <: RDF](
     fc: Concurrent[F]
 ) extends Wallet[F]:
 
-  import ops.{*, given}
+  import ops.*
+  import ops.given
   import rdfDecoders.allrdf
-
   import run.cosy.http4s.auth.Http4sMessageSignature.withSigInput
-  implicit def reqToHttpReq(h4req: org.http4s.Request[F]): Http.Request[F, H4] = h4req.asInstanceOf[Http.Request[F, H4]]
-  
-  given selectorOps: SelectorOps[Http.Request[F, H4]] = new run.cosy.http4s.headers.Http4sMessageSelectors[F](
-    true,
-    Uri.Authority(),
-    443
-  ).requestSelectorOps
-  
+  import scala.language.implicitConversions
+
+  implicit def reqToH4Req(h4req: Request[F]): Http.Request[F, H4] =
+    h4req.asInstanceOf[Http.Request[F, H4]]
+
+  implicit def h4ReqToHttpReq(h4req: Http.Request[F, H4]): Request[F] =
+    h4req.asInstanceOf[Request[F]]
+
+  given selectorOps: SelectorOps[Http.Request[F, H4]] =
+    new run.cosy.http4s.headers.Http4sMessageSelectors[F](
+      true,
+      Uri.Authority(),
+      443
+    ).requestSelectorOps
+
   val WAC: WebACL[Rdf] = WebACL[Rdf]
   val cert: Cert[Rdf] = Cert[Rdf]
 
-  //todo: here we assume the request Uri usually has the Host. Need to verify, or pass the full Url
+  // todo: here we assume the request Uri usually has the Host. Need to verify, or pass the full Url
   def basicChallenge(
-      host: ll.Authority, //request for original Host
-      originalRequest: org.http4s.Request[F],
+      host: ll.Authority, // request for original Host
+      originalRequest: Request[F],
       nel: NonEmptyList[Challenge]
-  ): Try[org.http4s.Request[F]] =
-    //todo: can one use some of the info in the Challenge?
+  ): Try[Request[F]] =
+    // todo: can one use some of the info in the Challenge?
     val either = for
-      _    <- nel.find(_.scheme == "Basic").toRight(Exception("server does not make basic auth available"))
-      id   <- db.get(host).toRight(Exception("no passwords for hot "+host))
-    yield originalRequest.withHeaders(Authorization(BasicCredentials(id.username, id.password)))
+      _ <- nel
+        .find(_.scheme == "Basic")
+        .toRight(Exception("server does not make basic auth available"))
+      id <- db.get(host).toRight(Exception("no passwords for hot " + host))
+    yield originalRequest.withHeaders(
+      Authorization(BasicCredentials(id.username, id.password))
+    )
     either.toTry
   end basicChallenge
 
   def httpSigChallenge(
       requestUrl: ll.AbsoluteUrl, // http4s.Request objects are not guaranteed to contain absolute urls
-      originalRequest: org.http4s.Request[F],
+      originalRequest: Request[F],
       response: Response[F],
       nel: NonEmptyList[Challenge]
-  ): F[org.http4s.Request[F]] =
+  )(
+      using // todo, why do I have to explicitly use the type test?
+      tt: TypeTest[RDF.Statement.Object[Rdf], RDF.URI[Rdf]]
+  ): F[Request[F]] =
     val aclLinks: Seq[LinkValue] =
       for
         httpSig <- nel.find(_.scheme == "HttpSig").toList
         link <- response.headers.get[Link].toList
         linkVal <- link.values.toList
-        if linkVal.rel == Some("acl") //todo: also check other wac url
+        if linkVal.rel == Some("acl") // todo: also check other wac url
       yield linkVal
 
-    aclLinks.headOption match //todo: we try to the first only but what if...
+    aclLinks.headOption match // todo: we try to the first only but what if...
       case None =>
-        fc.raiseError(Exception(
+        fc.raiseError(
+          Exception(
             Exception("no acl Link in header. Cannot find where the rules are.")
-          ))
+          )
+        )
       case Some(link) =>
-        client.fetchAs[RDF.rGraph[Rdf]](Request(
+        client.fetchAs[RDF.rGraph[Rdf]](
+            Request(
               uri = link.uri.withoutFragment,
               headers = Headers(rdfDecoders.allRdfAccept)
-            ))
+            )
+          )
           .flatMap { (rG: RDF.rGraph[Rdf]) =>
-            //todo: what if original url is relative?
+            // todo: what if original url is relative?
             val g: RDF.Graph[Rdf] = rG.resolveAgainst(requestUrl)
             val reqRes = ops.URI(originalRequest.uri.toString) // <--
 
@@ -151,46 +183,47 @@ class BasicWallet[F[_], Rdf <: RDF](
               tr <- g.find(`*`, WAC.accessTo, reqRes)
               if !g
                 .find(tr.subj, WAC.mode, modeForMethod(originalRequest.method))
-                .isEmpty //todo: too simple
-              obj <- g.find(tr.subj, WAC.agent, `*`).map(_.obj)
-                .collect[RDF.Statement.Subject[Rdf]]{
-                  case u: RDF.URI[Rdf]  => u
+                .isEmpty // todo: too simple
+              obj <- g
+                .find(tr.subj, WAC.agent, `*`)
+                .map(_.obj)
+                .collect[RDF.Statement.Object[Rdf]] {
+                  case tt(u)             => u
                   case b: RDF.BNode[Rdf] => b
+                  // todo: the key could be in a literal too !?
                 }
               tr3 <- g.find(obj, cert.key, `*`)
             yield tr3.obj
 
-            val keys: List[KeyId[F, Rdf]] = keyNodes.toList.collect {
-              case u: RDF.URI[Rdf] => keyIdDB.get(u).toList
+            val keys: List[KeyId[F, Rdf]] = keyNodes.toList.collect { case tt(u) =>
+              keyIdDB.find(kid => kid.keyId == u).toList
             }.flatten
 
             for
-              key <- fc.fromOption[KeyId[F, Rdf]](keys.headOption,
-                Exception("no key in the ACL matches the keys we have available"))
+              key <- fc.fromOption[KeyId[F, Rdf]](
+                keys.headOption,
+                Exception(
+                  "no key in the ACL matches the keys we have available"
+                )
+              )
               signingFn <- key.signer
               sigIn <- key.mkSigInput()
               signedReq <- originalRequest.withSigInput(
-                Rfc8941.Token("sig1"), sigIn, signingFn
+                Rfc8941.Token("sig1"),
+                sigIn,
+                signingFn
               )
             yield signedReq
           }
   end httpSigChallenge
 
   def modeForMethod(method: Method): RDF.URI[Rdf] =
-    if List(Method.GET, Method.HEAD, Method.SEARCH).contains(method) then
-      WAC.Read
+    if List(Method.GET, Method.HEAD, Method.SEARCH).contains(method) then WAC.Read
     else WAC.Write
 
-  //ignoring username:password urls
+  // ignoring username:password urls
   def http4sUrlToLLUrl(u: org.http4s.Uri): ll.Url =
-    import u.{
-      host as h4host,
-      path as h4path,
-      query as h4query,
-      port as h4port,
-      query as h4query,
-      scheme as h4scheme
-    }
+    import u.{host as h4host, path as h4path, query as h4query, port as h4port, scheme as h4scheme}
     ll.Url(
       h4scheme.map(_.value).getOrElse(null),
       null,
@@ -202,18 +235,17 @@ class BasicWallet[F[_], Rdf <: RDF](
       null
     )
 
-  /** This is different from middleware such as FollowRedirects, as that
-    * essentially continues the request. Here we need to stop the request and
-    * make new ones to find the access control rules for the given resource.
-    * (that could just be a BasicAuth request for a password, or a more complex
-    * description linked to from the resource, but it may also just involve
-    * querying a DB or quad store.)
+  /** This is different from middleware such as FollowRedirects, as that essentially continues the
+    * request. Here we need to stop the request and make new ones to find the access control rules
+    * for the given resource. (that could just be a BasicAuth request for a password, or a more
+    * complex description linked to from the resource, but it may also just involve querying a DB or
+    * quad store.)
     */
   override def sign(
-    res: Response[F],
-    req: org.http4s.Request[F],
-    originalReqUrl: ll.AbsoluteUrl
-  ): F[org.http4s.Request[F]] =
+      res: Response[F],
+      req: Request[F]
+  ): F[Request[F]] =
+    import cats.syntax.applicativeError.given
     res.status.code match
       case 402 =>
         fc.raiseError(
@@ -223,16 +255,16 @@ class BasicWallet[F[_], Rdf <: RDF](
         res.headers.get[`WWW-Authenticate`] match
           case None =>
             fc.raiseError(
-                new Exception("No WWW-Authenticate header. Don't know how to login")
+              new Exception("No WWW-Authenticate header. Don't know how to login")
             )
           case Some(`WWW-Authenticate`(nel)) => // do we recognise a method?
-            val bf = fc.fromTry(
-              basicChallenge(originalReqUrl.authority, req, nel)
-            )
-            fc.handleErrorWith(bf){ _ =>
-              httpSigChallenge(originalReqUrl, req, res, nel)
-            }
-      case _ => ??? //fail
+            for
+              url <- fc.fromTry(Try(http4sUrlToLLUrl(req.uri).toAbsoluteUrl))
+              authdReq <- fc.fromTry(basicChallenge(url.authority, req, nel)).handleErrorWith { _ =>
+                httpSigChallenge(url, req, res, nel)
+              }
+            yield authdReq
+      case _ => ??? // fail
   end sign
 
 end BasicWallet

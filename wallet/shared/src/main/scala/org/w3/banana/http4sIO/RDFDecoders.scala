@@ -21,7 +21,15 @@ import cats.data.EitherT
 import cats.effect.Concurrent
 import org.http4s.EntityDecoder.collectBinary
 import org.http4s.MediaType.{Compressible, NotBinary}
-import org.http4s.{Charset, DecodeFailure, EntityDecoder, MalformedMessageBodyFailure, MediaRange, MediaType, QValue}
+import org.http4s.{
+  Charset,
+  DecodeFailure,
+  EntityDecoder,
+  MalformedMessageBodyFailure,
+  MediaRange,
+  MediaType,
+  QValue
+}
 import org.http4s.implicits.{qValue, given}
 import org.w3.banana.io.{RDFXML, RelRDFReader, Turtle}
 import org.w3.banana.io.JsonLd
@@ -92,7 +100,7 @@ class RDFDecoders[F[_], Rdf <: RDF](using
   val allRdfAccept = Accept(
     text.turtle.withQValue(QValue.One),
     ntriples.withQValue(QValue.One),
-    application.`ld+json`.withQValue(qValue"800"),
-    application.`rdf+xml`.withQValue(qValue"800")
+    application.`ld+json`.withQValue(qValue"0.8"),
+    application.`rdf+xml`.withQValue(qValue"0.8")
   )
 end RDFDecoders

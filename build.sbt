@@ -1,11 +1,9 @@
 import sbt.ThisBuild
-import sbtcrossproject.CrossPlugin.autoImport.{CrossType, crossProject}
-import scalajsbundler.sbtplugin.ScalaJSBundlerPlugin.autoImport.webpackConfigFile
-
-import Dependencies._
+import sbtcrossproject.CrossPlugin.autoImport.{crossProject, CrossType}
+import Dependencies.*
 
 name := "SolidApp"
-ThisBuild / organization := "bblfish.net"
+ThisBuild / organization := "net.bblfish"
 ThisBuild / version := "0.1"
 ThisBuild / scalaVersion := Ver.scala
 ThisBuild / startYear := Some(2021)
@@ -23,23 +21,23 @@ lazy val commonSettings = Seq(
   scalaVersion := Ver.scala,
   updateOptions := updateOptions.value.withCachedResolution(
     true
-  ) //to speed up dependency resolution
+  ) // to speed up dependency resolution
 )
 
 val scala3jsOptions = Seq(
   // "-classpath", "foo:bar:...",         // Add to the classpath.
-  //"-encoding", "utf-8",                // Specify character encoding used by source files.
+  // "-encoding", "utf-8",                // Specify character encoding used by source files.
   "-deprecation", // Emit warning and location for usages of deprecated APIs.
   "-unchecked", // Enable additional warnings where generated code depends on assumptions.
   "-feature", // Emit warning and location for usages of features that should be imported explicitly.
-  //"-explain",                          // Explain errors in more detail.
-  //"-explain-types",                    // Explain type errors in more detail.
+  // "-explain",                          // Explain errors in more detail.
+  // "-explain-types",                    // Explain type errors in more detail.
   "-indent", // Together with -rewrite, remove {...} syntax when possible due to significant indentation.
   // "-no-indent",                        // Require classical {...} syntax, indentation is not significant.
   "-new-syntax", // Require `then` and `do` in control expressions.
   // "-old-syntax",                       // Require `(...)` around conditions.
   // "-language:Scala2",                  // Compile Scala 2 code, highlight what needs updating
-  //"-language:strictEquality",          // Require +derives Eql+ for using == or != comparisons
+  // "-language:strictEquality",          // Require +derives Eql+ for using == or != comparisons
   // "-rewrite",                          // Attempt to fix code automatically. Use with -indent and ...-migration.
   // "-scalajs",                          // Compile in Scala.js mode (requires scalajs-library.jar on the classpath).
   "-source:future", // Choices: future and future-migration. I use this to force future deprecation warnings, etc.
@@ -102,10 +100,9 @@ lazy val wallet = crossProject(JVMPlatform, JSPlatform)
     resolvers += sonatypeSNAPSHOT,
     libraryDependencies ++= Seq(
       http4s.client.value,
-      http4s.ember.value, // <- remove. added to explore implementation
+      http4s.ember_client.value, // <- remove. added to explore implementation
       banana.bananaJena.value,
-      crypto.http4sSig.value,
-      crypto.bobcats.value
+      crypto.http4sSig.value
     ),
     libraryDependencies ++= Seq(
       munit.value % Test,
@@ -127,6 +124,26 @@ lazy val wallet = crossProject(JVMPlatform, JSPlatform)
     // do I also need to run `npm install n3` ?
     // Compile / npmDependencies += NPM.n3,
     // Test / npmDependencies += NPM.n3
+  )
+
+lazy val scripts = crossProject(JVMPlatform)
+  .in(file("scripts"))
+//  .settings(
+//    libraryDependencies ++= Seq(
+//      other.scalaUri.value,
+//      crypto.bobcats.value classifier ("tests"), // bobcats test examples,
+//      crypto.bobcats.value classifier ("tests-sources") // bobcats test examples soources,
+//    )
+//  )
+  .dependsOn(authN)
+  .jvmSettings(
+    libraryDependencies ++= Seq(
+      crypto.bobcats.value classifier ("tests"), // bobcats test examples,
+      crypto.bobcats.value classifier ("tests-sources"), // bobcats test examples soources,
+      other.scalaUri.value,
+      crypto.nimbusJWT.value,
+      crypto.bouncyJCA.value
+    )
   )
 
 //lazy val app = project

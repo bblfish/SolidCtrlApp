@@ -33,8 +33,8 @@ import org.http4s.{BasicCredentials, Header, Request, Response, Status}
 
 import scala.util.{Failure, Success, Try}
 
-/** Client Authentication is a middleware that transforms a Client into a new
-  * Client that can use a Wallet to have requests signed.
+/** Client Authentication is a middleware that transforms a Client into a new Client that can use a
+  * Wallet to have requests signed.
   */
 object AuthNClient:
   def apply[F[_]: Concurrent](wallet: Wallet[F])(
@@ -48,22 +48,16 @@ object AuthNClient:
     ): F[Response[F]] =
       hotswap.clear *> // Release the prior connection before allocating a new
         hotswap.swap(client.run(req)).flatMap { (resp: Response[F]) =>
-          //todo: may want a lot more flexibility than attempt numbering to determine if we should retry or not.
+          // todo: may want a lot more flexibility than attempt numbering to determine if we should retry or not.
           resp.status match
             case Status.Unauthorized if attempts < 1 =>
-              wallet.sign(resp, req, hotswap).flatMap {
-                case Success(newReq) =>
-                  authLoop(newReq, attempts + 1, hotswap)
-                case Failure(e) =>
-                  //todo: add an attribute to explain failure
-                  resp.pure[F]
-              }
+              wallet.sign(resp, req).flatMap(newReq => authLoop(newReq, attempts + 1, hotswap))
             case _ => resp.pure[F]
         }
 
     Client { req =>
-      //using the pattern from FollowRedirect example using Hotswap.
-      //Not 100% sure this is so much needed here...
+      // using the pattern from FollowRedirect example using Hotswap.
+      // Not 100% sure this is so much needed here...
       Hotswap.create[F, Response[F]].flatMap { hotswap =>
         Resource.eval(authLoop(req, 0, hotswap))
       }

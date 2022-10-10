@@ -153,9 +153,8 @@ class AuthNClientTest extends munit.CatsEffectSuite {
     //		val logedClient: Client[IO] = ResponseLogger[IO](true, true, logAction = Some(s => IO(println(s))))(defaultClient)
     val client: Client[IO] = AuthNClient[IO](
       AuthNClient.basicWallet(
-        Map(
-          Uri
-            .RegName("localhost") -> new AuthNClient.BasicId(username, password)
+        Map(Uri.RegName("localhost") ->
+          new AuthNClient.BasicId(username, password)
         )
       )
     )(defaultClient)
