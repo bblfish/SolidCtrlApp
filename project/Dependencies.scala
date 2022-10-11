@@ -5,7 +5,7 @@ object Dependencies {
   object Ver {
     val scala = "3.1.3"
     val http4s = "1.0.0-M37"
-    val banana = "0.9-41c7766-SNAPSHOT"
+    val banana = "0.9-7520bf7-20221011T214341Z-SNAPSHOT"
     val bobcats = "0.2-7a91946-SNAPSHOT"
   }
 

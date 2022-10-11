@@ -78,18 +78,18 @@ class RDFDecoders[F[_], Rdf <: RDF](using
       List("nt")
     )
 
-  val turtleDecoder = decoderForRdfReader(text.turtle, ntriples)(
+  val turtleDecoder: EntityDecoder[F, rGraph[Rdf]] = decoderForRdfReader(text.turtle, ntriples)(
     turtleReader,
     "Rdf Turtle Reader failed"
   )
-  val rdfxmlDecoder = decoderForRdfReader(application.`rdf+xml`)(
+  val rdfxmlDecoder: EntityDecoder[F, rGraph[Rdf]] = decoderForRdfReader(application.`rdf+xml`)(
     rdfXmlReader,
     "Rdf Rdf/XML Reader failed"
   )
 //  val ntriplesDecoder = decoderForRdfReader(application.`n-triples`)(
 //    ntriplesReader, "NTriples  Reader failed"
 //  )
-  val jsonldDecoder = decoderForRdfReader(application.`ld+json`)(
+  val jsonldDecoder: EntityDecoder[F, rGraph[Rdf]] = decoderForRdfReader(application.`ld+json`)(
     jsonLDReader,
     "Json-LD Reader failed"
   )

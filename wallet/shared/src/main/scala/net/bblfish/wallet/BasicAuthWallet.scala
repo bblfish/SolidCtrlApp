@@ -22,13 +22,15 @@ import cats.effect.Clock
 import cats.effect.Concurrent
 import cats.effect.IO
 import cats.implicits.*
+import com.apicatalog.jsonld.uri.UriUtils
 import io.lemonlabs.uri as ll
 import io.lemonlabs.uri.Url
 import net.bblfish.app.Wallet
-import org.http4s.*
-import org.http4s.BasicCredentials
+import net.bblfish.web.util.SecurityPrefix
+import net.bblfish.web.util.UrlUtil.{http4sUrlToLLUrl, llUrltoHttp4s}
+import org.http4s as h4s
 import org.http4s.client.Client
-import org.http4s.headers.*
+import org.http4s.headers as h4hdr
 import org.http4s.headers.Authorization
 import org.w3.banana.Ops
 import org.w3.banana.RDF
@@ -107,28 +109,28 @@ class BasicWallet[F[_], Rdf <: RDF](
   import run.cosy.http4s.auth.Http4sMessageSignature.withSigInput
   import scala.language.implicitConversions
 
-  implicit def reqToH4Req(h4req: Request[F]): Http.Request[F, H4] =
+  implicit def reqToH4Req(h4req: h4s.Request[F]): Http.Request[F, H4] =
     h4req.asInstanceOf[Http.Request[F, H4]]
 
-  implicit def h4ReqToHttpReq(h4req: Http.Request[F, H4]): Request[F] =
-    h4req.asInstanceOf[Request[F]]
+  implicit def h4ReqToHttpReq(h4req: Http.Request[F, H4]): h4s.Request[F] =
+    h4req.asInstanceOf[h4s.Request[F]]
 
   given selectorOps: SelectorOps[Http.Request[F, H4]] =
     new run.cosy.http4s.headers.Http4sMessageSelectors[F](
       true,
-      Uri.Authority(),
+      h4s.Uri.Authority(),
       443
     ).requestSelectorOps
 
   val WAC: WebACL[Rdf] = WebACL[Rdf]
-  val cert: Cert[Rdf] = Cert[Rdf]
+  val sec: SecurityPrefix[Rdf] = SecurityPrefix[Rdf]
 
   // todo: here we assume the request Uri usually has the Host. Need to verify, or pass the full Url
   def basicChallenge(
       host: ll.Authority, // request for original Host
-      originalRequest: Request[F],
-      nel: NonEmptyList[Challenge]
-  ): Try[Request[F]] =
+      originalRequest: h4s.Request[F],
+      nel: NonEmptyList[h4s.Challenge]
+  ): Try[h4s.Request[F]] =
     // todo: can one use some of the info in the Challenge?
     val either = for
       _ <- nel
@@ -136,24 +138,24 @@ class BasicWallet[F[_], Rdf <: RDF](
         .toRight(Exception("server does not make basic auth available"))
       id <- db.get(host).toRight(Exception("no passwords for hot " + host))
     yield originalRequest.withHeaders(
-      Authorization(BasicCredentials(id.username, id.password))
+      Authorization(h4s.BasicCredentials(id.username, id.password))
     )
     either.toTry
   end basicChallenge
 
   def httpSigChallenge(
       requestUrl: ll.AbsoluteUrl, // http4s.Request objects are not guaranteed to contain absolute urls
-      originalRequest: Request[F],
-      response: Response[F],
-      nel: NonEmptyList[Challenge]
+      originalRequest: h4s.Request[F],
+      response: h4s.Response[F],
+      nel: NonEmptyList[h4s.Challenge]
   )(
       using // todo, why do I have to explicitly use the type test?
       tt: TypeTest[RDF.Statement.Object[Rdf], RDF.URI[Rdf]]
-  ): F[Request[F]] =
-    val aclLinks: Seq[LinkValue] =
+  ): F[h4s.Request[F]] =
+    val aclLinks: Seq[h4hdr.LinkValue] =
       for
         httpSig <- nel.find(_.scheme == "HttpSig").toList
-        link <- response.headers.get[Link].toList
+        link <- response.headers.get[h4hdr.Link].toList
         linkVal <- link.values.toList
         if linkVal.rel == Some("acl") // todo: also check other wac url
       yield linkVal
@@ -166,23 +168,27 @@ class BasicWallet[F[_], Rdf <: RDF](
           )
         )
       case Some(link) =>
-        client.fetchAs[RDF.rGraph[Rdf]](
-            Request(
-              uri = link.uri.withoutFragment,
-              headers = Headers(rdfDecoders.allRdfAccept)
+        val h4req = llUrltoHttp4s(requestUrl)
+        val absLink: h4s.Uri = h4req.resolve(link.uri)
+        client
+          .fetchAs[RDF.rGraph[Rdf]](
+            h4s.Request(
+              uri = absLink.withoutFragment,
+              headers = h4s.Headers(rdfDecoders.allRdfAccept)
             )
           )
           .flatMap { (rG: RDF.rGraph[Rdf]) =>
             // todo: what if original url is relative?
-            val g: RDF.Graph[Rdf] = rG.resolveAgainst(requestUrl)
+            val lllink = http4sUrlToLLUrl(absLink).toAbsoluteUrl
+            val g: RDF.Graph[Rdf] = rG.resolveAgainst(lllink)
             val reqRes = ops.URI(originalRequest.uri.toString) // <--
-
             // this requires all the info to be in the same graph. Needs generalisation to
             // jump across graphs
+            val mode = modeForMethod(originalRequest.method)
             val keyNodes = for
               tr <- g.find(`*`, WAC.accessTo, reqRes)
               if !g
-                .find(tr.subj, WAC.mode, modeForMethod(originalRequest.method))
+                .find(tr.subj, WAC.mode, mode)
                 .isEmpty // todo: too simple
               obj <- g
                 .find(tr.subj, WAC.agent, `*`)
@@ -192,8 +198,8 @@ class BasicWallet[F[_], Rdf <: RDF](
                   case b: RDF.BNode[Rdf] => b
                   // todo: the key could be in a literal too !?
                 }
-              tr3 <- g.find(obj, cert.key, `*`)
-            yield tr3.obj
+              tr3 <- g.find(*, sec.controller, obj)
+            yield tr3.subj
 
             val keys: List[KeyId[F, Rdf]] = keyNodes.toList.collect { case tt(u) =>
               keyIdDB.find(kid => kid.keyId == u).toList
@@ -203,7 +209,7 @@ class BasicWallet[F[_], Rdf <: RDF](
               key <- fc.fromOption[KeyId[F, Rdf]](
                 keys.headOption,
                 Exception(
-                  "no key in the ACL matches the keys we have available"
+                  s"none of our keys fit the ACL $lllink for resource $reqRes accessed in $mode matches the rules in { $g } "
                 )
               )
               signingFn <- key.signer
@@ -217,23 +223,10 @@ class BasicWallet[F[_], Rdf <: RDF](
           }
   end httpSigChallenge
 
-  def modeForMethod(method: Method): RDF.URI[Rdf] =
-    if List(Method.GET, Method.HEAD, Method.SEARCH).contains(method) then WAC.Read
+  def modeForMethod(method: h4s.Method): RDF.URI[Rdf] =
+    import h4s.Method.{GET, HEAD, SEARCH}
+    if List(GET, HEAD, SEARCH).contains(method) then WAC.Read
     else WAC.Write
-
-  // ignoring username:password urls
-  def http4sUrlToLLUrl(u: org.http4s.Uri): ll.Url =
-    import u.{host as h4host, path as h4path, query as h4query, port as h4port, scheme as h4scheme}
-    ll.Url(
-      h4scheme.map(_.value).getOrElse(null),
-      null,
-      null,
-      h4host.map(_.value).getOrElse(null),
-      h4port.getOrElse(-1),
-      h4path.toString,
-      ll.QueryString.parse(h4query.toString),
-      null
-    )
 
   /** This is different from middleware such as FollowRedirects, as that essentially continues the
     * request. Here we need to stop the request and make new ones to find the access control rules
@@ -242,9 +235,9 @@ class BasicWallet[F[_], Rdf <: RDF](
     * quad store.)
     */
   override def sign(
-      res: Response[F],
-      req: Request[F]
-  ): F[Request[F]] =
+      res: h4s.Response[F],
+      req: h4s.Request[F]
+  ): F[h4s.Request[F]] =
     import cats.syntax.applicativeError.given
     res.status.code match
       case 402 =>
@@ -252,12 +245,12 @@ class BasicWallet[F[_], Rdf <: RDF](
           new Exception("We don't support payment authentication yet")
         )
       case 401 =>
-        res.headers.get[`WWW-Authenticate`] match
+        res.headers.get[h4hdr.`WWW-Authenticate`] match
           case None =>
             fc.raiseError(
               new Exception("No WWW-Authenticate header. Don't know how to login")
             )
-          case Some(`WWW-Authenticate`(nel)) => // do we recognise a method?
+          case Some(h4hdr.`WWW-Authenticate`(nel)) => // do we recognise a method?
             for
               url <- fc.fromTry(Try(http4sUrlToLLUrl(req.uri).toAbsoluteUrl))
               authdReq <- fc.fromTry(basicChallenge(url.authority, req, nel)).handleErrorWith { _ =>
