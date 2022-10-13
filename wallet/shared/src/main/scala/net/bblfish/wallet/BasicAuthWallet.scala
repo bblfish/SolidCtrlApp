@@ -46,10 +46,10 @@ import run.cosy.http.headers.DictSelector
 import run.cosy.http.headers.MessageSelector
 import run.cosy.http.headers.Rfc8941
 import run.cosy.http.headers.Rfc8941.IList
-import run.cosy.http.headers.Rfc8941.SfInt
+import run.cosy.http.headers.Rfc8941.{SfInt,SfString}
 import run.cosy.http.headers.SelectorOps
 import run.cosy.http.headers.SigInput
-import run.cosy.http4s.Http4sTp.H4
+import run.cosy.http4s.Http4sTp.HT as H4
 import run.cosy.http4s.auth.Http4sMessageSignature
 import run.cosy.http4s.headers.BasicHeaderSelector
 import run.cosy.http4s.headers.Http4sDictSelector
@@ -71,15 +71,15 @@ class KeyId[F[_]: Concurrent: Clock, Rdf <: RDF](
     val keyId: RDF.URI[Rdf],
     val signer: F[ByteVector => F[ByteVector]],
     val alg: String = ""
-):
-
+)(using ops: Ops[Rdf]):
+  import ops.given
   // wrapped in an F, because of clock
   // is this a val or a function? A val should do...
   def mkSigInput(): F[SigInput] =
     for
       t <- summon[Clock[F]].realTime
       si <- summon[Concurrent[F]].fromOption(
-        SigInput(IList()(SigInput.createdTk -> SfInt(t.toSeconds))),
+        SigInput(IList()(SigInput.createdTk -> SfInt(t.toSeconds), SigInput.keyidTk -> SfString(keyId.value))),
         Exception("SigInput template faulty")
       ) // todo: we need a SigInputBuilder
     yield si
@@ -109,18 +109,20 @@ class BasicWallet[F[_], Rdf <: RDF](
   import run.cosy.http4s.auth.Http4sMessageSignature.withSigInput
   import scala.language.implicitConversions
 
-  implicit def reqToH4Req(h4req: h4s.Request[F]): Http.Request[F, H4] =
+  def reqToH4Req(h4req: h4s.Request[F]): Http.Request[F, H4] =
     h4req.asInstanceOf[Http.Request[F, H4]]
 
-  implicit def h4ReqToHttpReq(h4req: Http.Request[F, H4]): h4s.Request[F] =
+  def h4ReqToHttpReq(h4req: Http.Request[F, H4]): h4s.Request[F] =
     h4req.asInstanceOf[h4s.Request[F]]
 
+  //todo: I am mixing gerneic programming here and then fixing one type here. Not that good.
   given selectorOps: SelectorOps[Http.Request[F, H4]] =
     new run.cosy.http4s.headers.Http4sMessageSelectors[F](
       true,
       h4s.Uri.Authority(),
       443
     ).requestSelectorOps
+    
 
   val WAC: WebACL[Rdf] = WebACL[Rdf]
   val sec: SecurityPrefix[Rdf] = SecurityPrefix[Rdf]
@@ -200,7 +202,7 @@ class BasicWallet[F[_], Rdf <: RDF](
                 }
               tr3 <- g.find(*, sec.controller, obj)
             yield tr3.subj
-
+            import run.cosy.http4s.Http4sTp.given
             val keys: List[KeyId[F, Rdf]] = keyNodes.toList.collect { case tt(u) =>
               keyIdDB.find(kid => kid.keyId == u).toList
             }.flatten
@@ -214,12 +216,14 @@ class BasicWallet[F[_], Rdf <: RDF](
               )
               signingFn <- key.signer
               sigIn <- key.mkSigInput()
-              signedReq <- originalRequest.withSigInput(
+              signedReq <- reqToH4Req(originalRequest).withSigInput(
                 Rfc8941.Token("sig1"),
                 sigIn,
                 signingFn
               )
-            yield signedReq
+            yield
+              val res = run.cosy.http4s.Http4sTp.hOps.addHeader[F, Http.Request[F,H4]](signedReq)("Authorization","HttpSig proof=sig1")
+              h4ReqToHttpReq(res)
           }
   end httpSigChallenge
 

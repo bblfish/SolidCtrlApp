@@ -7,6 +7,7 @@ object Dependencies {
     val http4s = "1.0.0-M37"
     val banana = "0.9-7520bf7-20221011T214341Z-SNAPSHOT"
     val bobcats = "0.2-7a91946-SNAPSHOT"
+    val httpSig = "0.2-e5ac965-SNAPSHOT"
   }
 
   object other {
@@ -37,13 +38,13 @@ object Dependencies {
   object crypto {
     // https://oss.sonatype.org/content/repositories/snapshots/net/bblfish/crypto/bobcats_3/
     lazy val http4sSig = Def.setting(
-      "net.bblfish.crypto" %% "http4s-http-signature" % "0.2-4233c03-SNAPSHOT"
+      "net.bblfish.crypto" %% "http4s-http-signature" % Ver.httpSig
     )
     lazy val nimbusJWT = Def.setting("com.nimbusds" % "nimbus-jose-jwt" % "9.25.4")
     lazy val bouncyJCA = Def.setting("org.bouncycastle" % "bcpkix-jdk18on" % "1.72")
     // https://oss.sonatype.org/content/repositories/snapshots/net/bblfish/crypto/bobcats_3/
     lazy val bobcats =
-      Def.setting("net.bblfish.crypto" %%% "bobcats" % "0.2-7a91946-SNAPSHOT")
+      Def.setting("net.bblfish.crypto" %%% "bobcats" % Ver.bobcats)
   }
 
   // not published yet
