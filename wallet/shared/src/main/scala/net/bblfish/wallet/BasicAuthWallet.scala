@@ -25,12 +25,13 @@ import cats.implicits.*
 import com.apicatalog.jsonld.uri.UriUtils
 import io.lemonlabs.uri as ll
 import io.lemonlabs.uri.Url
+import run.cosy.http.auth.MessageSignature
 import net.bblfish.app.Wallet
 import net.bblfish.web.util.SecurityPrefix
 import net.bblfish.web.util.UrlUtil.{http4sUrlToLLUrl, llUrltoHttp4s}
 import org.http4s as h4s
 import org.http4s.client.Client
-import org.http4s.headers as h4hdr
+import org.http4s.{Challenge, headers as h4hdr}
 import org.http4s.headers.Authorization
 import org.w3.banana.Ops
 import org.w3.banana.RDF
@@ -42,49 +43,53 @@ import org.w3.banana.prefix.Cert
 import org.w3.banana.prefix.WebACL
 import org.w3.banana.prefix.WebACL.apply
 import run.cosy.http.Http
-import run.cosy.http.headers.DictSelector
-import run.cosy.http.headers.MessageSelector
-import run.cosy.http.headers.Rfc8941
+import run.cosy.http.headers.{ReqSigInput, Rfc8941, SigInput}
 import run.cosy.http.headers.Rfc8941.IList
-import run.cosy.http.headers.Rfc8941.{SfInt,SfString}
-import run.cosy.http.headers.SelectorOps
-import run.cosy.http.headers.SigInput
+import run.cosy.http.headers.Rfc8941.{SfInt, SfString}
+import run.cosy.http.headers.SigIn.KeyId
+import run.cosy.http.messages.{NoServerContext, ReqSelectors}
 import run.cosy.http4s.Http4sTp.HT as H4
-import run.cosy.http4s.auth.Http4sMessageSignature
-import run.cosy.http4s.headers.BasicHeaderSelector
-import run.cosy.http4s.headers.Http4sDictSelector
+import run.cosy.http4s.messages.SelectorFnsH4
 
 import scala.reflect.TypeTest
 import scala.util.Failure
 import scala.util.Try
 import scodec.bits.ByteVector
 
+import scala.concurrent.duration.FiniteDuration
+
 class BasicId(val username: String, val password: String)
 
-/* The keyId points to the public key, but the private key is obtained elsewhere, and
- * should also have a URL.
+/* The keyId points to the public key.
+ * The private key is obtained elsewhere, and could also have a URL.
  * todo: the Public Key should be linked to the algorithm string
  *    so that it can be added when needed as `alg="..."` to the
  *    signature. (It should also be found in the remote jwt)
  * */
-class KeyId[F[_]: Concurrent: Clock, Rdf <: RDF](
-    val keyId: RDF.URI[Rdf],
-    val signer: F[ByteVector => F[ByteVector]],
-    val alg: String = ""
-)(using ops: Ops[Rdf]):
-  import ops.given
-  // wrapped in an F, because of clock
-  // is this a val or a function? A val should do...
-  def mkSigInput(): F[SigInput] =
-    for
-      t <- summon[Clock[F]].realTime
-      si <- summon[Concurrent[F]].fromOption(
-        SigInput(IList()(SigInput.createdTk -> SfInt(t.toSeconds), SigInput.keyidTk -> SfString(keyId.value))),
-        Exception("SigInput template faulty")
-      ) // todo: we need a SigInputBuilder
-    yield si
+class KeyData[F[_]](
+    val keyIdAtt: KeyId,
+    val signer: F[ByteVector => F[ByteVector]]
+):
+//  import ops.{given, *}
+//  lazy val keyIdAtt = KeyId(Rfc8941.SfString(keyId.value))
 
-end KeyId
+  def mkSigInput(now: FiniteDuration): ReqSigInput[H4] =
+    import run.cosy.http.headers.SigIn.*
+    ReqSigInput[H4]()(Created(now.toSeconds), keyIdAtt)
+
+end KeyData
+
+
+trait ChallengeResponse:
+   //the challenge scheme for which this response is designed
+   def forChallengeScheme: String
+   
+   //
+   def respondTo[F[_]](
+    remote: ll.AbsoluteUrl, // request for original Host
+    originalRequest: h4s.Request[F],
+    response: h4s.Response[F]
+   ): F[h4s.Request[F]]
 
 /*
  * First attempt at a Wallet, just to get things going.
@@ -95,34 +100,32 @@ end KeyId
  */
 class BasicWallet[F[_], Rdf <: RDF](
     db: Map[ll.Authority, BasicId],
-    keyIdDB: Seq[KeyId[F, Rdf]]
+    keyIdDB: Seq[KeyData[F]]
 )(using
     client: Client[F],
     ops: Ops[Rdf],
     rdfDecoders: RDFDecoders[F, Rdf],
-    fc: Concurrent[F]
+    fc: Concurrent[F],
+    clock: Clock[F]
 ) extends Wallet[F]:
+
+  val reqSel: ReqSelectors[H4] = new ReqSelectors[H4](using new SelectorFnsH4())
+  import reqSel.*
+  import reqSel.RequestHd.*
+
+  import run.cosy.http4s.Http4sTp
+  import run.cosy.http4s.Http4sTp.{*, given}
 
   import ops.*
   import ops.given
   import rdfDecoders.allrdf
-  import run.cosy.http4s.auth.Http4sMessageSignature.withSigInput
   import scala.language.implicitConversions
 
-  def reqToH4Req(h4req: h4s.Request[F]): Http.Request[F, H4] =
-    h4req.asInstanceOf[Http.Request[F, H4]]
+  def reqToH4Req(h4req: h4s.Request[F]): Http.Request[H4] =
+    h4req.asInstanceOf[Http.Request[H4]]
 
-  def h4ReqToHttpReq(h4req: Http.Request[F, H4]): h4s.Request[F] =
+  def h4ReqToHttpReq(h4req: Http.Request[H4]): h4s.Request[F] =
     h4req.asInstanceOf[h4s.Request[F]]
-
-  //todo: I am mixing gerneic programming here and then fixing one type here. Not that good.
-  given selectorOps: SelectorOps[Http.Request[F, H4]] =
-    new run.cosy.http4s.headers.Http4sMessageSelectors[F](
-      true,
-      h4s.Uri.Authority(),
-      443
-    ).requestSelectorOps
-    
 
   val WAC: WebACL[Rdf] = WebACL[Rdf]
   val sec: SecurityPrefix[Rdf] = SecurityPrefix[Rdf]
@@ -150,9 +153,6 @@ class BasicWallet[F[_], Rdf <: RDF](
       originalRequest: h4s.Request[F],
       response: h4s.Response[F],
       nel: NonEmptyList[h4s.Challenge]
-  )(
-      using // todo, why do I have to explicitly use the type test?
-      tt: TypeTest[RDF.Statement.Object[Rdf], RDF.URI[Rdf]]
   ): F[h4s.Request[F]] =
     val aclLinks: Seq[h4hdr.LinkValue] =
       for
@@ -196,33 +196,35 @@ class BasicWallet[F[_], Rdf <: RDF](
                 .find(tr.subj, WAC.agent, `*`)
                 .map(_.obj)
                 .collect[RDF.Statement.Object[Rdf]] {
-                  case tt(u)             => u
+                  case u: RDF.URI[Rdf]   => u
                   case b: RDF.BNode[Rdf] => b
                   // todo: the key could be in a literal too !?
                 }
               tr3 <- g.find(*, sec.controller, obj)
             yield tr3.subj
             import run.cosy.http4s.Http4sTp.given
-            val keys: List[KeyId[F, Rdf]] = keyNodes.toList.collect { case tt(u) =>
-              keyIdDB.find(kid => kid.keyId == u).toList
+            val keys: List[KeyData[F]] = keyNodes.toList.collect { case u: RDF.URI[Rdf] =>
+              keyIdDB.find(kid => kid.keyIdAtt.value.asciiStr == u.value).toList
             }.flatten
 
             for
-              key <- fc.fromOption[KeyId[F, Rdf]](
+              keydt <- fc.fromOption[KeyData[F]](
                 keys.headOption,
                 Exception(
                   s"none of our keys fit the ACL $lllink for resource $reqRes accessed in $mode matches the rules in { $g } "
                 )
               )
-              signingFn <- key.signer
-              sigIn <- key.mkSigInput()
-              signedReq <- reqToH4Req(originalRequest).withSigInput(
+              signingFn <- keydt.signer
+              now <- clock.realTime // <- todo, add clock time caching perhaps
+              signedReq <- MessageSignature.withSigInput[F, H4](
+                originalRequest.asInstanceOf[Http.Request[H4]],
                 Rfc8941.Token("sig1"),
-                sigIn,
+                keydt.mkSigInput(now),
                 signingFn
               )
             yield
-              val res = run.cosy.http4s.Http4sTp.hOps.addHeader[F, Http.Request[F,H4]](signedReq)("Authorization","HttpSig proof=sig1")
+              val res = run.cosy.http4s.Http4sTp.hOps
+                .addHeader[Http.Request[H4]](signedReq)("Authorization", "HttpSig proof=sig1")
               h4ReqToHttpReq(res)
           }
   end httpSigChallenge

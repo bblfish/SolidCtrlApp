@@ -1,6 +1,6 @@
 import sbt.ThisBuild
 import sbtcrossproject.CrossPlugin.autoImport.{crossProject, CrossType}
-import Dependencies.*
+import Dependencies._
 
 name := "SolidApp"
 ThisBuild / organization := "net.bblfish"
@@ -54,7 +54,7 @@ resolvers += "jitpack" at "https://jitpack.io"
 //  "org.scalatest" %%% "scalatest" % "3.2.9" % Test
 //)
 
-lazy val authN = crossProject(JVMPlatform, JSPlatform)
+lazy val authN = crossProject(JVMPlatform) // , JSPlatform)
   .crossType(CrossType.Full)
   .in(file("authn"))
   .settings(commonSettings: _*)
@@ -87,9 +87,23 @@ lazy val authN = crossProject(JVMPlatform, JSPlatform)
   )
   .dependsOn(wallet)
 
+lazy val free = crossProject(JVMPlatform) // , JSPlatform)
+  .crossType(CrossType.Full)
+  .in(file("free"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "Free LDP",
+    description := "Free LDP client and provisionally interpreters (to be moved)",
+    libraryDependencies ++= Seq(
+      cats.core.value,
+      cats.free.value,
+      http4s.core.value
+    )
+  )
+
 //todo: we should split the wallet into client-wallet and the full wallet library
 // as clients of the wallet only need a minimal interface
-lazy val wallet = crossProject(JVMPlatform, JSPlatform)
+lazy val wallet = crossProject(JVMPlatform) // , JSPlatform)
   .crossType(CrossType.Full)
   .in(file("wallet"))
   .settings(commonSettings: _*)
@@ -141,8 +155,8 @@ lazy val scripts = crossProject(JVMPlatform)
       crypto.bobcats.value classifier ("tests"), // bobcats test examples,
       crypto.bobcats.value classifier ("tests-sources"), // bobcats test examples soources,
       other.scalaUri.value,
-      crypto.nimbusJWT.value,
-      crypto.bouncyJCA.value
+      crypto.nimbusJWT_JDK.value,
+      crypto.bouncyJCA_JDK.value
     )
   )
 

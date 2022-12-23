@@ -54,7 +54,7 @@ val signerF: IO[ByteVector => IO[ByteVector]] = Signer[IO].build(pkcs8K, bobcats
 import org.w3.banana.jena.io.JenaRDFReader.given
 import org.w3.banana.jena.io.JenaRDFWriter.given
 
-val keyid = net.bblfish.wallet.KeyId[IO,R](keyUrl,signerF)
+val keyid = net.bblfish.wallet.KeyData[IO,R](keyUrl,signerF)
 
 given dec: RDFDecoders[IO,R] = new RDFDecoders()
 import org.http4s.syntax.all.uri
