@@ -22,7 +22,7 @@ We will get going with 1 and 3, but keeping 2 and 4 in mind will be helpful to m
 
 ### Client Sequence Diagram 
 
-For servers other than the home server we extend the basic authentication diagram [shown on the MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication) to:
+When the client is accessing servers other than the user's POD, we extend the basic authentication diagram [shown on the Mozilla Developer Network](https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication) with an extra potential request to the Web Access Control (WAC) Document in 2, so that the client can find out which credential it could use, before authenticating:
       
 ```
 Client                                            WAC           Resource
@@ -42,11 +42,11 @@ App                                             Document         Server
 |                                                                auth|
 |                                                        verification|
 |                                                                    |
-|                                                                    |
 |<--------------------------------------------(4a) answer resource---|
 ```
 
-We are only concerned about the client here:
+We are only concerned about the client here, so we don't show what the
+server needs to do to verify the signed request in (4). Here are the main points:
 
 2. the Client must follow a link to the ACL after receiving a 401 (if the header contains such a link) in order to find which of its credentials would be acceptable (eg. work, personal, age credential). This may require fetching more than one (potentially cached) documents. Eg. it could require fetching links to groups referenced by the client, or even follow hierarchies downwards. Note that even when a client knows the password for the server it is connecting to, it may want to know the access control rule, as that could tell it to use another less powerful certificate.
 3. Having selected the valid credentials, and sorted them according to some preferences, the user can select one, or the wallet can follow some preferences expressed by that user previously.
@@ -56,7 +56,6 @@ We are only concerned about the client here:
 
 So now we can look at the components
 
-Hea
 
 
 
