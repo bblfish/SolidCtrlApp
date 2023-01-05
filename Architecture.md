@@ -46,11 +46,13 @@ App                                             Document         Server
 ```
 
 We are only concerned about the client here, so we don't show what the
-server needs to do to verify the signed request in (4). Here are the main points:
+server needs to do to verify the signed request in (4). Here are the main 
+stages of the Client's behavior:
 
-2. the Client must follow a link to the ACL after receiving a 401 (if the header contains such a link) in order to find which of its credentials would be acceptable (eg. work, personal, age credential). This may require fetching more than one (potentially cached) documents. Eg. it could require fetching links to groups referenced by the client, or even follow hierarchies downwards. Note that even when a client knows the password for the server it is connecting to, it may want to know the access control rule, as that could tell it to use another less powerful certificate.
-3. Having selected the valid credentials, and sorted them according to some preferences, the user can select one, or the wallet can follow some preferences expressed by that user previously.
-4. add the needed headers to the next request to authenticate, signing it in one way or another, by adding a password, signature or token.
+1. The client makes a request which returns a 401 (1a) with a link the Web Access Control (WAC) document.
+2. it fetches the WAC doc to find out if any of the credentials it holds would be acceptable (eg. work or personal ID, age credential, ...). This may require fetching more than one (potentially cached) documents. Eg. it could require fetching links to groups referenced by the client, or even follow hierarchies downwards. Note that even when a client knows the password for the server it is connecting to, it may want to know the access control rule, as that could tell it to use another less powerful certificate.
+3. The client having selected the valid credentials and sorted them according to some preferences, the user can select one, or the wallet can follow some preferences expressed by that user previously.
+4. the client then adds the needed headers to the next request, making it an authenticated request by signing it in one way or another (eg. by adding a password, signature or token)
 
 ### Components
 
