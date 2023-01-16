@@ -169,11 +169,11 @@ def findMyCredentials(wac: NGraph): F[LazyList[(Agent, Proof)]]
 
 We can combine the above 2 functions in the Kleisli category `F`
 ```math
-fetchWac; findMyCredentials : Response \to (Agent \times Proof)^*
+\text{fetchWac}; \text{findMyCredentials}: \text{Response} \to (\{text{Agent} \times \text{Proof})^*
 ```
 Compare this to the `authUser` server side function [in the http4s auth documentation](https://http4s.org/v1/docs/auth.html), which written more mathematically in the Kleisli category F is the morphism. 
 ```math
-authUser: Request \to 1 + User
+\text{authUser}: \text{Request} \to 1 + \text{User}
 ```
 The `authUser` consumes the given proof.
 
