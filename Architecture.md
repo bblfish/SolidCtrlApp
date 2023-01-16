@@ -167,6 +167,8 @@ def findMyCredentials(wac: NGraph): F[LazyList[(Agent, Proof)]]
 
 #### 3. Putting them together
 
+(this needs more work)
+
 We can combine the above 2 functions in the Kleisli category `F`
 ```math
 \text{fetchWac}; \text{findMyCredentials}: \text{Response} \to (\text{Agent} \times \text{Proof})^*
