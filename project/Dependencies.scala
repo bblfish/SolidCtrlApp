@@ -3,11 +3,11 @@ import sbt.{Def, _}
 
 object Dependencies {
   object Ver {
-    val scala = "3.1.3"
+    val scala = "3.2.1"
     val http4s = "1.0.0-M37"
-    val banana = "0.9-7520bf7-20221011T214341Z-SNAPSHOT"
-    val bobcats = "0.2-7a91946-SNAPSHOT"
-    val httpSig = "0.2-e5ac965-SNAPSHOT"
+    val banana = "0.9-baf7258-SNAPSHOT"
+    val bobcats = "0.3-3236e64-SNAPSHOT"
+    val httpSig = "0.4-b4ee7cc-20221221T174054Z-SNAPSHOT"
   }
 
   object other {
@@ -25,11 +25,14 @@ object Dependencies {
     lazy val server = http4s("http4s-server")
     lazy val theDsl = http4s("http4s-dsl")
     // https://github.com/http4s/http4s-dom
-    // https://search.maven.org/artifact/org.http4s/http4s-dom_sjs1_3/1.0.0-M29/jar
+    // https://search.maven.org/artifact/org.http4s/http4s-dom_sjs1_3/1.0.0-M37/jar
     lazy val Dom = Def.setting("org.http4s" %%% "http4s-dom" % "1.0.0-M36")
   }
 
   object cats {
+    lazy val core = Def.setting("org.typelevel" %%% "cats-core" % "2.8.0")
+    lazy val free = Def.setting("org.typelevel" %%% "cats-free" % "2.8.0")
+
     // https://github.com/typelevel/munit-cats-effect
     lazy val munitEffect =
       Def.setting("org.typelevel" %%% "munit-cats-effect-3" % "1.0.7")
@@ -38,10 +41,10 @@ object Dependencies {
   object crypto {
     // https://oss.sonatype.org/content/repositories/snapshots/net/bblfish/crypto/bobcats_3/
     lazy val http4sSig = Def.setting(
-      "net.bblfish.crypto" %% "http4s-http-signature" % Ver.httpSig
+      "net.bblfish.crypto" %%% "http4s-http-signature" % Ver.httpSig
     )
-    lazy val nimbusJWT = Def.setting("com.nimbusds" % "nimbus-jose-jwt" % "9.25.4")
-    lazy val bouncyJCA = Def.setting("org.bouncycastle" % "bcpkix-jdk18on" % "1.72")
+    lazy val nimbusJWT_JDK = Def.setting("com.nimbusds" % "nimbus-jose-jwt" % "9.25.4")
+    lazy val bouncyJCA_JDK = Def.setting("org.bouncycastle" % "bcpkix-jdk18on" % "1.72")
     // https://oss.sonatype.org/content/repositories/snapshots/net/bblfish/crypto/bobcats_3/
     lazy val bobcats =
       Def.setting("net.bblfish.crypto" %%% "bobcats" % Ver.bobcats)
@@ -50,18 +53,18 @@ object Dependencies {
   // not published yet
   object banana {
     lazy val bananaJena =
-      Def.setting("net.bblfish.rdf" %% "banana-jena-io-sync" % Ver.banana)
+      Def.setting("net.bblfish.rdf" %%% "banana-jena-io-sync" % Ver.banana)
   }
 
   val scalajsDom = Def.setting("org.scala-js" %%% "scalajs-dom" % "2.0.0")
   val bananaRdfLib =
     Def.setting("net.bblfish.rdf" %%% "rdflibJS" % "0.9-SNAPSHOT")
 
-  val munit = Def.setting("org.scalameta" %%% "munit" % "1.0.0-M1")
-  val utest = Def.setting("com.lihaoyi" %%% "utest" % "0.7.10")
+  val munit = Def.setting("org.scalameta" %%% "munit" % "1.0.0-M7")
+//  val utest = Def.setting("com.lihaoyi" %%% "utest" % "0.7.10")
 
-  val modelJS =
-    Def.setting("net.bblfish.rdf" %%% "rdf-model-js" % "0.2-dbfa81d-SNAPSHOT")
+//  val modelJS =
+//    Def.setting("net.bblfish.rdf" %%% "rdf-model-js" % "0.2-dbfa81d-SNAPSHOT")
   // needed for modelJS
   val sonatypeSNAPSHOT: MavenRepository =
     "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"

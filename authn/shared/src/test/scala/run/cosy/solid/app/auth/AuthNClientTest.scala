@@ -19,7 +19,11 @@ package run.cosy.solid.app.auth
 import cats.effect.*
 import cats.effect.std.Semaphore
 import cats.syntax.all.*
+import io.lemonlabs
+import io.lemonlabs.uri.config.UriConfig
 import net.bblfish.app.auth.AuthNClient
+import net.bblfish.wallet.BasicWallet
+import net.bblfish.wallet.BasicId
 import org.http4s.Uri.Host
 import org.http4s.client.Client
 import org.http4s.client.dsl.Http4sClientDsl
@@ -29,19 +33,9 @@ import org.http4s.headers.*
 import org.http4s.server.middleware.authentication.BasicAuth
 import org.http4s.server.{AuthMiddleware, Router}
 import org.http4s.syntax.all.*
-import org.http4s.{
-  AuthedRoutes,
-  BasicCredentials,
-  Challenge,
-  Headers,
-  HttpRoutes,
-  Request,
-  Response,
-  Status,
-  Uri
-}
+import org.http4s.{AuthedRoutes, BasicCredentials, Challenge, Headers, HttpRoutes, Request, Response, Status, Uri}
 import org.typelevel.ci.*
-
+import org.w3.banana.jena.JenaRdf.R as Jena
 import java.util.concurrent.atomic.*
 
 case class User(id: Long, name: String)
@@ -93,8 +87,7 @@ class AuthNClientTest extends munit.CatsEffectSuite {
     ) {
       val req = Request[IO](
         uri = uri"/auth",
-        headers =
-          Headers(Authorization(BasicCredentials("Wrong User", password)))
+        headers = Headers(Authorization(BasicCredentials("Wrong User", password)))
       )
       routes(req).foldF(IO(fail("no route"))) { (res: Response[IO]) =>
         IO(assertEquals(res.status, Status.Unauthorized)) >>
@@ -114,12 +107,10 @@ class AuthNClientTest extends munit.CatsEffectSuite {
     ) {
       val req = Request[IO](
         uri = uri"/doesNotExist",
-        headers =
-          Headers(Authorization(BasicCredentials("Wrong User", password)))
+        headers = Headers(Authorization(BasicCredentials("Wrong User", password)))
       )
-      routes(req).foldF(IO(assert(true, "route does not exist"))) {
-        (res: Response[IO]) =>
-          IO(fail("route does not exist"))
+      routes(req).foldF(IO(assert(true, "route does not exist"))) { (res: Response[IO]) =>
+        IO(fail("route does not exist"))
       }
     }
 
@@ -150,23 +141,26 @@ class AuthNClientTest extends munit.CatsEffectSuite {
 
     // test with client now
     val defaultClient: Client[IO] = Client.fromHttpApp(routes.orNotFound)
+    given UriConfig = UriConfig.default
     //		val logedClient: Client[IO] = ResponseLogger[IO](true, true, logAction = Some(s => IO(println(s))))(defaultClient)
     val client: Client[IO] = AuthNClient[IO](
-      AuthNClient.basicWallet(
-        Map(Uri.RegName("localhost") ->
-          new AuthNClient.BasicId(username, password)
+      new BasicWallet[IO,Jena](
+        Map(
+          lemonlabs.uri.Authority("localhost") ->
+            BasicId(username, password)
         )
       )
     )(defaultClient)
 
-    val clientBad: Client[IO] = AuthN[IO](
-      AuthNClient.basicWallet(
+    val clientBad: Client[IO] = AuthNClient[IO](
+      BasicWallet[IO,Jena](
         Map(
-          Uri.RegName("localhost") -> new AuthNClient.BasicId(
+          lemonlabs.uri.Authority("localhost") -> BasicId(
             username,
             password + "bad"
           )
-        )
+        ),
+        List()
       )
     )(defaultClient)
 
@@ -190,9 +184,8 @@ class AuthNClientTest extends munit.CatsEffectSuite {
       clientBad.get(uri"http://localhost/auth") { (res: Response[IO]) =>
         IO(assertEquals(res.status, Status.Unauthorized))
       }
-      clientBad.get(uri"http://localhost/auth/NonExistent") {
-        (res: Response[IO]) =>
-          IO(assertEquals(res.status, Status.Unauthorized))
+      clientBad.get(uri"http://localhost/auth/NonExistent") { (res: Response[IO]) =>
+        IO(assertEquals(res.status, Status.Unauthorized))
       }
     }
 

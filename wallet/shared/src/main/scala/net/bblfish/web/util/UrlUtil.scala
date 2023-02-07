@@ -1,8 +1,24 @@
+/*
+ * Copyright 2021 Typelevel
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package net.bblfish.web.util
 
 import com.comcast.ip4s
 import io.lemonlabs.uri as ll
-import org.http4s.{Uri as h4Uri}
+import org.http4s.Uri as h4Uri
 
 object UrlUtil {
   // ignoring username:password urls
@@ -25,7 +41,8 @@ object UrlUtil {
       h4Uri.Scheme.fromString(sch).toOption
     }
     val h4Auth: Option[h4Uri.Authority] = u.authorityOption.flatMap { llAuth =>
-      val ui: Option[h4Uri.UserInfo] = llAuth.userInfo.map(ui => h4Uri.UserInfo(ui.user,ui.password))
+      val ui: Option[h4Uri.UserInfo] =
+        llAuth.userInfo.map(ui => h4Uri.UserInfo(ui.user, ui.password))
       val hostOpt: Option[h4Uri.Host] = ip4s.Host
         .fromString(llAuth.host.value)
         .map(h4Uri.Host.fromIp4sHost)
