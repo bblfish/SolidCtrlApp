@@ -91,22 +91,30 @@ trait ChallengeResponse:
     response: h4s.Response[F]
    ): F[h4s.Request[F]]
 
-/*
- * First attempt at a Wallet, just to get things going.
- * The wallet must be given callections of passwords for domains, KeyIDs for
- * http signatures
- * it needs a client to follow links to the WAC rules, though it would be better
- * if instead it were given a DataSet proxied to the web to allow caching.
- */
+/**
+  * First attempt at a Wallet, just to get things going.
+  * The wallet must be given collections of passwords for domains, KeyIDs for
+  * http signatures, cookies (!), OpenId info, ...
+  *
+  * Note that CookieJar is a algebra for a mutable used to produce a middleware.
+  * So perhaps a wallet takes a set of middlewares
+  * each adapted for a particular situation, and it would proceed as follows:
+  *
+  *
+  * it needs a client to follow links to the WAC rules, though it may be better
+  * if instead it were given a DataSet proxied to the web to allow caching.
+  * On the other hand with free monads one could have those be interpreted according
+  * to context... Todo: compare this way of working with free-monads.
+  */
 class BasicWallet[F[_], Rdf <: RDF](
-    db: Map[ll.Authority, BasicId],
-    keyIdDB: Seq[KeyData[F]]
-)(using
-    client: Client[F],
-    ops: Ops[Rdf],
-    rdfDecoders: RDFDecoders[F, Rdf],
-    fc: Concurrent[F],
-    clock: Clock[F]
+  db: Map[ll.Authority, BasicId],
+  keyIdDB: Seq[KeyData[F]]
+)(client: Client[F])(
+  using
+  ops: Ops[Rdf],
+  rdfDecoders: RDFDecoders[F, Rdf],
+  fc: Concurrent[F],
+  clock: Clock[F]
 ) extends Wallet[F]:
 
   val reqSel: ReqSelectors[H4] = new ReqSelectors[H4](using new SelectorFnsH4())
@@ -241,26 +249,26 @@ class BasicWallet[F[_], Rdf <: RDF](
     * quad store.)
     */
   override def sign(
-      res: h4s.Response[F],
-      req: h4s.Request[F]
+      failed: h4s.Response[F],
+      lastReq: h4s.Request[F]
   ): F[h4s.Request[F]] =
     import cats.syntax.applicativeError.given
-    res.status.code match
+    failed.status.code match
       case 402 =>
         fc.raiseError(
           new Exception("We don't support payment authentication yet")
         )
       case 401 =>
-        res.headers.get[h4hdr.`WWW-Authenticate`] match
+        failed.headers.get[h4hdr.`WWW-Authenticate`] match
           case None =>
             fc.raiseError(
               new Exception("No WWW-Authenticate header. Don't know how to login")
             )
           case Some(h4hdr.`WWW-Authenticate`(nel)) => // do we recognise a method?
             for
-              url <- fc.fromTry(Try(http4sUrlToLLUrl(req.uri).toAbsoluteUrl))
-              authdReq <- fc.fromTry(basicChallenge(url.authority, req, nel)).handleErrorWith { _ =>
-                httpSigChallenge(url, req, res, nel)
+              url <- fc.fromTry(Try(http4sUrlToLLUrl(lastReq.uri).toAbsoluteUrl))
+              authdReq <- fc.fromTry(basicChallenge(url.authority, lastReq, nel)).handleErrorWith { _ =>
+                httpSigChallenge(url, lastReq, failed, nel)
               }
             yield authdReq
       case _ => ??? // fail

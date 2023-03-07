@@ -18,7 +18,7 @@ The server can signal its support for any of these via a [WWW-Authenticate](http
 3. [HttpSig](https://github.com/bblfish/authentication-panel/blob/main/proposals/HttpSignature.md): the most efficient and secure authentication, best for connecting to other servers
 4. UMA: as described in [Solid-OIDC](https://solidproject.org/TR/oidc-primer) is useful as a way of tying into widely deployed OAuth systems, but not efficient for highly decentralised apps.
 5. Credential based - find the spec
-6. Cookies: once a user is authenticated for a realm, using a cookie may be enough to continue the interaction.
+6. Cookies: once a user is authenticated for a realm, using a cookie may be enough to continue the interaction. But cookie use in the browser by non-origin apps is limited and tricky.([see detailed course](https://www.youtube.com/watch?v=34wC1C61lg0))
 
 We will get going with 1 and 3, but keeping 2 and 4 in mind will be helpful to make sure the architecture is correct. In any case the system should be extensible so that others can contribute other auth schemes without problem.
 
@@ -66,7 +66,7 @@ trait Client[F[_]]:
   //...
 ```
 
-This parallels the way Http4s defines server applications. As Ross Baker quipped in his [introductory talk]() ([video](https://www.youtube.com/watch?v=urdtmx4h5LE)):
+This parallels the way Http4s defines server applications. As Ross Baker quipped in his introductory talk ([video](https://www.youtube.com/watch?v=urdtmx4h5LE)):
     
 > HTTP applications are just a Kleisli function from a streaming request to a polymorphic effect of a streaming response. So what's the problem?
 

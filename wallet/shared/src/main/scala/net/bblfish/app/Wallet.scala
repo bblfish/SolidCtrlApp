@@ -28,5 +28,5 @@ trait Wallet[F[_]] {
     * Note: For this to work, I think we need to assume that the URL in the Request is absolute. see
     * [[https://github.com/http4s/http4s/discussions/5930#discussioncomment-3777066 cats-uri discussion]]
     */
-  def sign(res: Response[F], req: Request[F]): F[Request[F]]
+  def sign(failed: Response[F], lastReq: Request[F]): F[Request[F]]
 }

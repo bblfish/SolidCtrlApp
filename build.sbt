@@ -101,6 +101,28 @@ lazy val free = crossProject(JVMPlatform) // , JSPlatform)
     )
   )
 
+// an LDES client
+lazy val ldes = crossProject(JVMPlatform)
+  .crossType(CrossType.Full)
+  .in(file("ldes"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "LDES Client",
+    description := "Linked Data Event Stream Libraries and Client",
+    // scalacOptions := scala3jsOptions,
+    resolvers += sonatypeSNAPSHOT,
+    libraryDependencies ++= Seq(
+      banana.bananaRdf.value,
+//      cats.effect.value,
+      cats.fs2.value
+    ),
+    libraryDependencies ++= Seq(
+      munit.value % Test,
+      cats.munitEffect.value % Test,
+      banana.bananaJena.value % Test
+    )
+  )
+
 //todo: we should split the wallet into client-wallet and the full wallet library
 // as clients of the wallet only need a minimal interface
 lazy val wallet = crossProject(JVMPlatform) // , JSPlatform)
