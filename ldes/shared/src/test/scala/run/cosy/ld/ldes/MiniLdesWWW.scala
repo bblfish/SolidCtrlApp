@@ -6,13 +6,14 @@ import org.w3.banana.diesel.{*, given}
 import org.w3.banana.{diesel, *}
 import run.cosy.ld.*
 import run.cosy.ld.ldes.prefix as ldesPre
+import scala.language.implicitConversions
 
 object MiniLdesWWW:
   def mechelen(date: String): String = "https://ldes.mechelen.org/" + date
   val D09_05: String = mechelen("2021-09-05")
   val D09_06: String = mechelen("2021-09-06")
   val D09_07: String = mechelen("2021-09-07")
-  val Container: String = mechelen("")
+  val Collection: String = mechelen("")
 
 class MiniLdesWWW[R <: RDF](using ops: Ops[R]) extends Web[IO, R]:
   import MiniLdesWWW.*
@@ -33,16 +34,110 @@ class MiniLdesWWW[R <: RDF](using ops: Ops[R]) extends Web[IO, R]:
     val doc = url.fragmentLess
     get(doc).map(g => new UriNGraph(url, doc, g))
 
+  def observation(
+      name: String,
+      loc: String,
+      simpleResult: String,
+      sensor: RDF.URI[R],
+      observedProp: RDF.URI[R],
+      resultTime: String
+  ): Seq[RDF.rTriple[R]] =
+    (rURI("#" + name) -- rdf.typ ->- sosa.Observation
+      -- wgs84.location ->- area(loc)
+      -- sosa.hasSimpleResult ->- (simpleResult ^^ xsd.float)
+      -- sosa.madeBySensor ->- sensor
+      -- sosa.observedProperty ->- observedProp
+      -- sosa.resultTime ->- (resultTime ^^ xsd.dateTimeStamp)).graph.triples.toSeq
+
+  val obsrvs: Map[String, Seq[Seq[RDF.rTriple[R]]]] = Map(
+    D09_05 -> Seq(
+      observation(
+        "3",
+        "loc781089",
+        "4.0",
+        pzDev("213501"),
+        polMsr("motorized"),
+        "2021-09-05T23:00:00+02"
+      ),
+      observation(
+        "482",
+        "loc",
+        "2455.1123",
+        crop("schoolstraat"),
+        cropProp("deviceNbr"),
+        "2021-09-05T22:30:00+02"
+      ),
+      observation(
+        "4464",
+        "loc734383",
+        "10.0",
+        pzDev("213504+5+6"),
+        polMsr("bike"),
+        "2021-09-05T23:00:00+02"
+      )
+    ),
+    D09_06 -> Seq(
+      observation(
+        "3003",
+        "loc763628",
+        "44.0",
+        pzDev("213503"),
+        polMsr("motorized"),
+        "2021-09-06T11:00:00+02"
+      ),
+      observation(
+        "4493",
+        "loc734383",
+        "197.0",
+        pzDev("213504+5+6"),
+        polMsr("motorized"),
+        "2021-09-06T12:00:00+02"
+      ),
+      observation(
+        "48",
+        "loc781089",
+        "1.0",
+        pzDev("213501"),
+        polMsr("bike"),
+        "2021-09-06T22:00:00+02"
+      )
+    ),
+    D09_07 -> Seq(
+      observation(
+        "658",
+        "loc",
+        "5087.4795",
+        crop("schoolstraat"),
+        cropProp("deviceNbr"),
+        "2021-09-07T18:30:00+02"
+      ),
+      observation(
+        "637",
+        "loc",
+        "7009.3345",
+        crop("schoolstraat"),
+        cropProp("deviceNbr"),
+        "2021-09-07T13:15:00+02"
+      ),
+      observation(
+        "3074",
+        "loc763628",
+        "1.0",
+        pzDev("213503"),
+        polMsr("bike"),
+        "2021-09-06T22:00:00+02"
+      )
+    )
+  )
+
   def get(url: RDF.URI[R]): IO[RDF.Graph[R]] =
-    import scala.language.implicitConversions
     val res: RDF.rGraph[R] =
       url.value match
-        case Container =>
+        case Collection =>
           (rURI("").a(ldes.EventStream)
             -- ldes.timestampPath ->- sosa.resultTime
             -- tree.shape ->- rURI("flows-shacl")
-            -- tree.view ->- rURI("2021-09-05")
-          ).graph
+            -- tree.view ->- rURI("2021-09-05")).graph
         case D09_05 =>
           (rURI("") -- rdf.typ ->- tree.Node
             -- tree.relation ->- (
@@ -50,28 +145,7 @@ class MiniLdesWWW[R <: RDF](using ops: Ops[R]) extends Web[IO, R]:
                 -- tree.node ->- rURI("2021-09-06")
                 -- tree.path ->- sosa.resultTime
                 -- tree.value ->- ("2021-09-06T00:00:00+02" ^^ xsd.dateTimeStamp)
-            )).graph ++ (
-            rURI("#3") -- rdf.typ ->- sosa.Observation
-              -- wgs84.location ->- area("loc781089")
-              -- sosa.hasSimpleResult ->- ("4.0" ^^ xsd.float)
-              -- sosa.madeBySensor ->- pzDev("213501")
-              -- sosa.observedProperty ->- polMsr("motorized")
-              -- sosa.resultTime ->- ("2021-09-05T23:00:00+02" ^^ xsd.dateTimeStamp)
-          ).graph.triples.toSeq ++ (
-            rURI("#482") -- rdf.typ ->- sosa.Observation
-              -- wgs84.location ->- area("loc")
-              -- sosa.hasSimpleResult ->- ("2455.1123" ^^ xsd.float)
-              -- sosa.madeBySensor ->- crop("schoolstraat")
-              -- sosa.observedProperty ->- cropProp("deviceNbr")
-              -- sosa.resultTime ->- ("2021-09-05T22:30:00+02" ^^ xsd.dateTimeStamp)
-          ).graph.triples.toSeq ++ (
-            rURI("#4464") -- rdf.typ ->- sosa.Observation
-              -- wgs84.location ->- area("loc734383")
-              -- sosa.hasSimpleResult ->- ("10.0" ^^ xsd.float)
-              -- sosa.madeBySensor ->- pzDev("213504+5+6")
-              -- sosa.observedProperty ->- polMsr("bike")
-              -- sosa.resultTime ->- ("2021-09-05T23:00:00+02" ^^ xsd.dateTimeStamp)
-          ).graph.triples.toSeq ++ (
+            )).graph ++ obsrvs(D09_05).flatten ++ (
             rURI(".").a(ldes.EventStream)
               -- ldes.timestampPath ->- sosa.resultTime
               -- tree.shape ->- rURI("flows-shacl")
@@ -93,28 +167,7 @@ class MiniLdesWWW[R <: RDF](using ops: Ops[R]) extends Web[IO, R]:
                 -- tree.node ->- rURI("2021-09-07")
                 -- tree.path ->- sosa.resultTime
                 -- tree.value ->- ("2021-09-07T00:00:00+02" ^^ xsd.dateTimeStamp)
-            )).graph ++ (
-            rURI("#3003").a(sosa.Observation)
-              -- wgs84.location ->- area("loc763628")
-              -- sosa.hasSimpleResult ->- ("44.0" ^^ xsd.float)
-              -- sosa.madeBySensor ->- pzDev("213503")
-              -- sosa.observedProperty ->- polMsr("motorized")
-              -- sosa.resultTime ->- ("2021-09-06T11:00:00+02" ^^ xsd.dateTimeStamp)
-          ).graph.triples.toSeq ++ (
-            rURI("#4493").a(sosa.Observation)
-              -- wgs84.location ->- area("loc734383")
-              -- sosa.hasSimpleResult ->- ("197.0" ^^ xsd.float)
-              -- sosa.madeBySensor ->- pzDev("213504+5+6")
-              -- sosa.observedProperty ->- polMsr("motorized")
-              -- sosa.resultTime ->- ("2021-09-06T12:00:00+02" ^^ xsd.dateTimeStamp)
-          ).graph.triples.toSeq ++ (
-            rURI("#48").a(sosa.Observation)
-              -- wgs84.location ->- area("loc781089")
-              -- sosa.hasSimpleResult ->- ("1.0" ^^ xsd.float)
-              -- sosa.madeBySensor ->- pzDev("213501")
-              -- sosa.observedProperty ->- polMsr("bike")
-              -- sosa.resultTime ->- ("2021-09-06T22:00:00+02" ^^ xsd.dateTimeStamp)
-          ).graph.triples.toSeq ++ (
+            )).graph ++ obsrvs(D09_06).flatten ++ (
             rURI(".").a(ldes.EventStream)
               -- ldes.timestampPath ->- sosa.resultTime
               -- tree.shape ->- rURI("flows-shacl")
@@ -130,28 +183,7 @@ class MiniLdesWWW[R <: RDF](using ops: Ops[R]) extends Web[IO, R]:
                 -- tree.node ->- rURI("2021-09-07")
                 -- tree.path ->- sosa.resultTime
                 -- tree.value ->- ("2021-09-07T00:00:00+02" ^^ xsd.dateTimeStamp)
-            )).graph ++ (
-            rURI("#658").a(sosa.Observation)
-              -- wgs84.location ->- area("loc")
-              -- sosa.hasSimpleResult ->- ("5087.4795" ^^ xsd.float)
-              -- sosa.madeBySensor ->- crop("schoolstraat")
-              -- sosa.observedProperty ->- cropProp("deviceNbr")
-              -- sosa.resultTime ->- ("2021-09-07T18:30:00+02" ^^ xsd.dateTimeStamp)
-          ).graph.triples.toSeq ++ (
-            rURI("#637").a(sosa.Observation)
-              -- wgs84.location ->- area("loc")
-              -- sosa.hasSimpleResult ->- ("7009.3345" ^^ xsd.float)
-              -- sosa.madeBySensor ->- crop("schoolstraat")
-              -- sosa.observedProperty ->- cropProp("deviceNbr")
-              -- sosa.resultTime ->- ("2021-09-07T13:15:00+02" ^^ xsd.dateTimeStamp)
-          ).graph.triples.toSeq ++ (
-            rURI("#3074").a(sosa.Observation)
-              -- wgs84.location ->- area("loc763628")
-              -- sosa.hasSimpleResult ->- ("1.0" ^^ xsd.float)
-              -- sosa.madeBySensor ->- pzDev("213503")
-              -- sosa.observedProperty ->- polMsr("bike")
-              -- sosa.resultTime ->- ("2021-09-06T22:00:00+02" ^^ xsd.dateTimeStamp)
-          ).graph.triples.toSeq ++ (
+            )).graph ++ obsrvs(D09_07).flatten ++ (
             rURI(".").a(ldes.EventStream)
               -- ldes.timestampPath ->- sosa.resultTime
               -- tree.shape ->- rURI("flows-shacl")

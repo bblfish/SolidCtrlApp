@@ -5,7 +5,7 @@ object Dependencies {
   object Ver {
     val scala = "3.2.2"
     val http4s = "1.0.0-M39"
-    val banana  = "0.9-79e8845-20230228T213613Z-SNAPSHOT"
+    val banana  = "0.9-c996591-SNAPSHOT"
     val bobcats = "0.3-3236e64-SNAPSHOT"
     val httpSig = "0.4-ac23f8b-SNAPSHOT"
   }
@@ -33,6 +33,7 @@ object Dependencies {
     lazy val core = Def.setting("org.typelevel" %%% "cats-core" % "2.9.0")
     lazy val free = Def.setting("org.typelevel" %%% "cats-free" % "2.9.0")
 //    lazy val effect = Def.setting("org.typelevel" %% "cats-effect" % "3.4.8")
+    // https://github.com/typelevel/fs2
     lazy val fs2 = Def.setting("co.fs2" %% "fs2-core" % "3.6.1")
 
     // https://github.com/typelevel/munit-cats-effect
