@@ -92,6 +92,8 @@ trait LdesSimpleWebTest[R <: RDF]()(using ops: Ops[R]) extends CatsEffectSuite:
           import cats.syntax.traverse.{*, given}
           val x: Seq[IO[UriNGraph[R]]] =
             views.collect { case ung: UriNGraph[R] => ung.jump }
+          //note: a problem with x.sequence is that it would need all UriNGraphs to be complete
+          //before the IO is complete. What if some get stuck? 
           val pagesIO: IO[Seq[UriNGraph[R]]] = x.sequence
 //            val pagesIO: IO[Seq[UriNGraph[R]]] =
 //              views.collect({ case ung: UriNGraph[R] => ung.jump }).sequence

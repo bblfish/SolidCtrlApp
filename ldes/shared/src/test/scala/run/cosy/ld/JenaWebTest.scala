@@ -7,3 +7,6 @@ class JenaFoafWebTest extends FoafWebTest[R]()
 
 class JenaLdesSimpleWebTest extends LdesSimpleWebTest[R]()
 
+class JenaLdesCircularWebTest extends LdesCircularWebTest[R]()
+
+
