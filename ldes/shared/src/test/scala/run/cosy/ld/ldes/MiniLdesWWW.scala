@@ -6,6 +6,7 @@ import org.w3.banana.diesel.{*, given}
 import org.w3.banana.{diesel, *}
 import run.cosy.ld.*
 import run.cosy.ld.ldes.prefix as ldesPre
+
 import scala.language.implicitConversions
 
 object MiniLdesWWW:
@@ -31,8 +32,9 @@ class MiniLdesWWW[R <: RDF](using ops: Ops[R]) extends Web[IO, R]:
   def cropProp(prop: String) = URI("https://data.cropland.be/measure#" + prop)
 
   def get(url: RDF.URI[R]): IO[RDF.Graph[R]] =
-    val res: RDF.rGraph[R] = getRelativeGraph(url)
-    IO(res.resolveAgainst(AbsoluteUrl.parse(url.value)))
+    getRelativeGraph(url) match
+      case Some(res) => IO(res.resolveAgainst(AbsoluteUrl.parse(url.value)))
+      case None      => IO.raiseError[RDF.Graph[R]](new Exception(s"resource $url not reachable"))
 
   def getPNG(url: RDF.URI[R]): IO[UriNGraph[R]] =
     val doc = url.fragmentLess
@@ -133,22 +135,24 @@ class MiniLdesWWW[R <: RDF](using ops: Ops[R]) extends Web[IO, R]:
       )
     )
   )
-  
-  def getRelativeGraph(url: RDF.URI[R]): RDF.rGraph[R] =
-    url.value match
-      case Collection =>
-        (rURI("").a(ldes.EventStream)
-          -- ldes.timestampPath ->- sosa.resultTime
-          -- tree.shape ->- rURI("flows-shacl")
-          -- tree.view ->- rURI("2021-09-05")).graph
-      case D09_05 =>
-        (rURI("") -- rdf.typ ->- tree.Node
-          -- tree.relation ->- (
+
+  def getRelativeGraph(url: RDF.URI[R]): Option[RDF.rGraph[R]] =
+    relG.lift(url.value)
+
+  def relG: PartialFunction[String, RDF.rGraph[R]] =
+    case Collection =>
+      (rURI("").a(ldes.EventStream)
+        -- ldes.timestampPath ->- sosa.resultTime
+        -- tree.shape ->- rURI("flows-shacl")
+        -- tree.view ->- rURI("2021-09-05")).graph
+    case D09_05 =>
+      (rURI("") -- rdf.typ ->- tree.Node
+        -- tree.relation ->- (
           BNode() -- rdf.typ ->- tree.GreaterThanRelation
             -- tree.node ->- rURI("2021-09-06")
             -- tree.path ->- sosa.resultTime
             -- tree.value ->- ("2021-09-06T00:00:00+02" ^^ xsd.dateTimeStamp)
-          )).graph ++ obsrvs(D09_05).flatten ++ (
+        )).graph ++ obsrvs(D09_05).flatten ++ (
           rURI(".").a(ldes.EventStream)
             -- ldes.timestampPath ->- sosa.resultTime
             -- tree.shape ->- rURI("flows-shacl")
@@ -157,42 +161,41 @@ class MiniLdesWWW[R <: RDF](using ops: Ops[R]) extends Web[IO, R]:
             -- tree.member ->- rURI("#482")
             -- tree.member ->- rURI("#4464")
           ).graph.triples.toSeq
-      case D09_06 =>
-        (rURI("").a(tree.Node)
-          -- tree.relation ->- (
+    case D09_06 =>
+      (rURI("").a(tree.Node)
+        -- tree.relation ->- (
           BNode().a(tree.LessThanRelation)
             -- tree.node ->- rURI("2021-09-05")
             -- tree.path ->- sosa.resultTime
             -- tree.value ->- ("2021-09-06T00:00:00+02" ^^ xsd.dateTimeStamp)
-          )
-          -- tree.relation ->- (
+        )
+        -- tree.relation ->- (
           BNode().a(tree.GreaterThanRelation)
             -- tree.node ->- rURI("2021-09-07")
             -- tree.path ->- sosa.resultTime
             -- tree.value ->- ("2021-09-07T00:00:00+02" ^^ xsd.dateTimeStamp)
-          )).graph ++ obsrvs(D09_06).flatten ++ (
-          rURI(".").a(ldes.EventStream)
-            -- ldes.timestampPath ->- sosa.resultTime
-            -- tree.shape ->- rURI("flows-shacl")
-            -- tree.view ->- rURI("")
-            -- tree.member ->- rURI("#4493")
-            -- tree.member ->- rURI("#48")
-            -- tree.member ->- rURI("#3003")
-          ).graph.triples.toSeq
-      case D09_07 =>
-        (rURI("").a(tree.Node)
-          -- tree.relation ->- (
+        )).graph ++ obsrvs(D09_06).flatten ++ (
+        rURI(".").a(ldes.EventStream)
+          -- ldes.timestampPath ->- sosa.resultTime
+          -- tree.shape ->- rURI("flows-shacl")
+          -- tree.view ->- rURI("")
+          -- tree.member ->- rURI("#4493")
+          -- tree.member ->- rURI("#48")
+          -- tree.member ->- rURI("#3003")
+      ).graph.triples.toSeq
+    case D09_07 =>
+      (rURI("").a(tree.Node)
+        -- tree.relation ->- (
           BNode().a(tree.LessThanRelation)
             -- tree.node ->- rURI("2021-09-06")
             -- tree.path ->- sosa.resultTime
             -- tree.value ->- ("2021-09-07T00:00:00+02" ^^ xsd.dateTimeStamp)
-          )).graph ++ obsrvs(D09_07).flatten ++ (
-          rURI(".").a(ldes.EventStream)
-            -- ldes.timestampPath ->- sosa.resultTime
-            -- tree.shape ->- rURI("flows-shacl")
-            -- tree.view ->- rURI("")
-            -- tree.member ->- rURI("#658")
-            -- tree.member ->- rURI("#3074")
-            -- tree.member ->- rURI("#637")
-          ).graph.triples.toSeq
-
+        )).graph ++ obsrvs(D09_07).flatten ++ (
+        rURI(".").a(ldes.EventStream)
+          -- ldes.timestampPath ->- sosa.resultTime
+          -- tree.shape ->- rURI("flows-shacl")
+          -- tree.view ->- rURI("")
+          -- tree.member ->- rURI("#658")
+          -- tree.member ->- rURI("#3074")
+          -- tree.member ->- rURI("#637")
+      ).graph.triples.toSeq
