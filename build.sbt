@@ -113,8 +113,10 @@ lazy val ldes = crossProject(JVMPlatform)
     resolvers += sonatypeSNAPSHOT,
     libraryDependencies ++= Seq(
       banana.bananaRdf.value,
+      banana.bananaIO.value,
 //      cats.effect.value,
-      cats.fs2.value
+      cats.fs2.value,
+      http4s.client.value
     ),
     libraryDependencies ++= Seq(
       munit.value % Test,

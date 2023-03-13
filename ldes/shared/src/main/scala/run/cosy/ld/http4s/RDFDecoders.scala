@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.w3.banana.http4sIO
+package run.cosy.ld.http4s
 
 import cats.{Applicative, FlatMap}
 import cats.data.EitherT
@@ -41,7 +41,7 @@ import org.http4s.headers.Accept
 import org.w3.banana.RDF.rGraph
 
 class RDFDecoders[F[_], Rdf <: RDF](using
-    ops: Ops[Rdf],
+    val ops: Ops[Rdf],
     cc: Concurrent[F],
     turtleReader: RelRDFReader[Rdf, Try, Turtle],
     rdfXmlReader: RelRDFReader[Rdf, Try, RDFXML],

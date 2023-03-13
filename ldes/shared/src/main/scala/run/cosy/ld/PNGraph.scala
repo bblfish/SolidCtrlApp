@@ -9,10 +9,10 @@ import org.w3.banana.{Ops, RDF}
 trait Web[F[_]: Concurrent, R <: RDF]:
   /** get a Graph for the given URL (without a fragment) */
   def get(url: RDF.URI[R]): F[RDF.Graph[R]]
-
-  /** get Pointed Named Graph for given url */
+  
+/** get Pointed Named Graph for given url */
   def getPNG(url: RDF.URI[R]): F[UriNGraph[R]]
-
+  
 /** A Pointed Named Graph, ie, a pointer into a NamedGraph We don't use a case class here as
   * equality between PNGgraphs is complicated by the need to prove isomorphism between graphs, and
   * the nodes have to be equivalent.

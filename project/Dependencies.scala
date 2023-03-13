@@ -37,8 +37,9 @@ object Dependencies {
     lazy val fs2 = Def.setting("co.fs2" %% "fs2-core" % "3.6.1")
 
     // https://github.com/typelevel/munit-cats-effect
+    // https://search.maven.org/artifact/org.typelevel/munit-cats-effect_3/2.0.0-M3/jar
     lazy val munitEffect =
-      Def.setting("org.typelevel" %%% "munit-cats-effect-3" % "1.0.7")
+      Def.setting("org.typelevel" %%% "munit-cats-effect" % "2.0.0-M3")
   }
 
   object crypto {
@@ -57,6 +58,7 @@ object Dependencies {
   object banana {
     lazy val bananaRdf =
       Def.setting("net.bblfish.rdf" %%% "banana-rdf" % Ver.banana)
+    lazy val bananaIO = Def.setting("net.bblfish.rdf" %%% "banana-jena-io-sync" % Ver.banana)
     lazy val bananaJena =
       Def.setting("net.bblfish.rdf" %%% "banana-jena-io-sync" % Ver.banana)
   }

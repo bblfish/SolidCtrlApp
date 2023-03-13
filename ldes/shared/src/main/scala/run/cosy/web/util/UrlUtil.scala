@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package net.bblfish.web.util
+package run.cosy.web.util
 
 import com.comcast.ip4s
 import io.lemonlabs.uri as ll
