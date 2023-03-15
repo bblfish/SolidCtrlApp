@@ -30,7 +30,6 @@ object MiniCF:
       EmberClientBuilder.default[IO].build.use { (client: Client[IO]) =>
         given web: Web[IO, JR] = new H4Web[IO, JR](client)
         val spider: LdesSpider[IO, JR] = new LdesSpider[IO, JR]
-        println("streamUri="+stream)
         val streamUri: RDF.URI[JR] = ops.URI(stream)
         spider.crawl(streamUri)
       }
@@ -42,27 +41,5 @@ object MiniCF:
     l.unsafeRunSync().foreach(_.triples.foreach(println))
   end crawlContainer
   
-//  def crawlNodes(): Unit =
-//    import cats.syntax.all.toFlatMapOps
-//    val lstOfGrIO: IO[List[RDF.Graph[JR]]] =
-//      EmberClientBuilder.default[IO].build.use { (client: Client[IO]) =>
-//        given web: Web[IO, JR] = new H4Web[IO, JR](client)
-//        val spider: LdesSpider[IO, JR] = new LdesSpider[IO, JR]
-//        val collectionURI =
-//          URI("http://localhost:8080/ldes/miniCityFlows/")
-//        val startNodeURI =
-//          URI("http://localhost:8080/ldes/miniCityFlows/2021-09-05")
-//        val startNodePNG = UriNGraph[JR](startNodeURI, collectionURI, Graph.empty)
-//        for
-//          ref <- Ref.of[IO, Set[RDF.URI[JR]]](Set())
-//          lst <- spider
-//            .crawlNodesForward(collectionURI, Seq(startNodePNG), ref)
-//            .compile[IO, IO, RDF.Graph[JR]]
-//            .toList
-//        yield lst
-//      }
-//    val gr: Seq[RDF.Graph[JR]] = lstOfGrIO.unsafeRunSync()
-//    val oneGr: RDF.Graph[JR] = gr.reduce((g1, g2) => g1.union(g2))
-//    ???
 
 end MiniCF

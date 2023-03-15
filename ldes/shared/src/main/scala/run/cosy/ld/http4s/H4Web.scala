@@ -32,14 +32,11 @@ class H4Web[F[_]: Concurrent, R <: RDF](
       u <- Concurrent[F].fromEither(h4s.Uri.fromString(url.value))
       doc = u.withoutFragment
       rG <- client.fetchAs[RDF.rGraph[R]](
-        h4s.Request(
-          uri = doc,
-          headers = h4s.Headers(rdfDecoders.allRdfAccept)
-        )
+        h4s.Request(uri = doc)
       )
     yield rG.resolveAgainst(http4sUrlToLLUrl(doc).toAbsoluteUrl)
 
   //todo: this should really use client.fetchPNG
   override def getPNG(url: RDF.URI[R]): F[UriNGraph[R]] =
     val doc = url.fragmentLess
-    get(doc).map(g => new UriNGraph(url, doc, g))
+    get(doc).map(g => UriNGraph(url, doc, g))
