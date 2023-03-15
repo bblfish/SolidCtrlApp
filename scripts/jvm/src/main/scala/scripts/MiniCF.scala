@@ -27,14 +27,16 @@ object MiniCF:
   @main
   def crawlContainer(stream: String = "http://localhost:8080/ldes/miniCityFlows/stream#"): Unit =
     val ioStr: IO[fs2.Stream[IO, RDF.Graph[JR]]] =
-      EmberClientBuilder.default[IO].build.use { (client: Client[IO]) =>
+      AnHttpSigClient.emberAuthClient.flatMap { (client: Client[IO]) =>
         given web: Web[IO, JR] = new H4Web[IO, JR](client)
         val spider: LdesSpider[IO, JR] = new LdesSpider[IO, JR]
         val streamUri: RDF.URI[JR] = ops.URI(stream)
         spider.crawl(streamUri)
       }
+      
     val l: IO[List[RDF.Graph[JR]]] =
-      fs2.Stream.eval(ioStr).flatten
+      fs2.Stream.eval(ioStr)
+        .flatten
         .reduce((g1, g2) => g1.union(g2))
         .compile[IO, IO, RDF.Graph[JR]]
         .toList

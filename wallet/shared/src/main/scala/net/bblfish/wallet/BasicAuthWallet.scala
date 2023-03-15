@@ -28,14 +28,14 @@ import io.lemonlabs.uri.Url
 import run.cosy.http.auth.MessageSignature
 import net.bblfish.app.Wallet
 import net.bblfish.web.util.SecurityPrefix
-import net.bblfish.web.util.UrlUtil.{http4sUrlToLLUrl, llUrltoHttp4s}
+import run.cosy.web.util.UrlUtil.{http4sUrlToLLUrl, llUrltoHttp4s}
 import org.http4s as h4s
 import org.http4s.client.Client
 import org.http4s.{Challenge, headers as h4hdr}
 import org.http4s.headers.Authorization
 import org.w3.banana.Ops
 import org.w3.banana.RDF
-import org.w3.banana.http4sIO.RDFDecoders
+import run.cosy.ld.http4s.RDFDecoders
 import org.w3.banana.io.JsonLd
 import org.w3.banana.io.RDFReader
 import org.w3.banana.io.Turtle

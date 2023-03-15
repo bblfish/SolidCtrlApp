@@ -105,6 +105,7 @@ lazy val free = crossProject(JVMPlatform) // , JSPlatform)
 lazy val ldes = crossProject(JVMPlatform)
   .crossType(CrossType.Full)
   .in(file("ldes"))
+  .dependsOn(ioExt4s)
   .settings(commonSettings: _*)
   .settings(
     name := "LDES Client",
@@ -112,11 +113,8 @@ lazy val ldes = crossProject(JVMPlatform)
     // scalacOptions := scala3jsOptions,
     resolvers += sonatypeSNAPSHOT,
     libraryDependencies ++= Seq(
-      banana.bananaRdf.value,
-      banana.bananaIO.value,
 //      cats.effect.value,
       cats.fs2.value,
-      http4s.client.value
     ),
     libraryDependencies ++= Seq(
       munit.value % Test,
@@ -125,11 +123,32 @@ lazy val ldes = crossProject(JVMPlatform)
     )
   )
 
+// todo: should be moved closer to banana-rdf repo
+lazy val ioExt4s = crossProject(JVMPlatform)
+  .crossType(CrossType.Full)
+  .in(file("ioExt4s"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "IO http4s ext",
+    description := "rdf io extensions for http4s",
+    // scalacOptions := scala3jsOptions,
+    resolvers += sonatypeSNAPSHOT,
+    libraryDependencies ++= Seq(
+      http4s.client.value,
+      banana.bananaIO.value,
+    ),
+    libraryDependencies ++= Seq(
+      munit.value % Test,
+      cats.munitEffect.value % Test,
+    )
+  )
+
 //todo: we should split the wallet into client-wallet and the full wallet library
 // as clients of the wallet only need a minimal interface
 lazy val wallet = crossProject(JVMPlatform) // , JSPlatform)
   .crossType(CrossType.Full)
   .in(file("wallet"))
+  .dependsOn(ioExt4s)
   .settings(commonSettings: _*)
   .settings(
     name := "Solid Wallet",
@@ -173,7 +192,7 @@ lazy val scripts = crossProject(JVMPlatform)
 //      crypto.bobcats.value classifier ("tests-sources") // bobcats test examples soources,
 //    )
 //  )
-  .dependsOn(/*authN,*/ ldes)
+  .dependsOn(wallet, authN, ldes)
   .jvmSettings(
     libraryDependencies ++= Seq(
       crypto.bobcats.value classifier ("tests"), // bobcats test examples,
