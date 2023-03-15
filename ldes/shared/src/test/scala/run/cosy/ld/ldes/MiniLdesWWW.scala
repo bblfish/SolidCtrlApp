@@ -6,6 +6,7 @@ import org.w3.banana.diesel.{*, given}
 import org.w3.banana.{diesel, *}
 import run.cosy.ld.*
 import run.cosy.ld.ldes.prefix as ldesPre
+import run.cosy.ldes.prefix.{LDES, SOSA, TREE, WGS84}
 
 import scala.language.implicitConversions
 
@@ -20,10 +21,10 @@ class MiniLdesWWW[R <: RDF](using ops: Ops[R]) extends Web[IO, R]:
   import MiniLdesWWW.*
   import ops.{*, given}
   val foaf = prefix.FOAF[R]
-  val tree = ldesPre.TREE[R]
-  val sosa = ldesPre.SOSA[R]
-  val wgs84 = ldesPre.WGS84[R]
-  val ldes = ldesPre.LDES[R]
+  val tree = TREE[R]
+  val sosa = SOSA[R]
+  val wgs84 = WGS84[R]
+  val ldes = LDES[R]
 
   def area(loc: String) = rURI("area#d" + loc)
   def pzDev(num: String) = URI("https://data.politie.be/sensor/dev#" + num)

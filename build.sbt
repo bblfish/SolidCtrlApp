@@ -173,12 +173,13 @@ lazy val scripts = crossProject(JVMPlatform)
 //      crypto.bobcats.value classifier ("tests-sources") // bobcats test examples soources,
 //    )
 //  )
-  .dependsOn(authN)
+  .dependsOn(/*authN,*/ ldes)
   .jvmSettings(
     libraryDependencies ++= Seq(
       crypto.bobcats.value classifier ("tests"), // bobcats test examples,
       crypto.bobcats.value classifier ("tests-sources"), // bobcats test examples soources,
       other.scalaUri.value,
+      http4s.ember_client.value,
       crypto.nimbusJWT_JDK.value,
       crypto.bouncyJCA_JDK.value
     )

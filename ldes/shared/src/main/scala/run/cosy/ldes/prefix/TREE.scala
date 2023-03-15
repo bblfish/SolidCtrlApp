@@ -1,4 +1,4 @@
-package run.cosy.ld.ldes.prefix
+package run.cosy.ldes.prefix
 
 import org.w3.banana.{Ops, PrefixBuilder, RDF}
 

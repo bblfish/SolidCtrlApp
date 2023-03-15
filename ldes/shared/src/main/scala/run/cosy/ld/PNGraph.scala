@@ -87,7 +87,7 @@ trait SubjPNGraph[R <: RDF] extends PNGraph[R]:
 end SubjPNGraph
 
 /** A PNG where the point is a URI */
-class UriNGraph[R <: RDF](
+case class UriNGraph[R <: RDF](
     val point: URI[R],
     val name: URI[R],
     val graph: Graph[R]

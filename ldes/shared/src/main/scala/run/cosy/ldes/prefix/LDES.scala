@@ -1,6 +1,6 @@
-package run.cosy.ld.ldes.prefix
+package run.cosy.ldes.prefix
 
-import org.w3.banana.{Ops, RDF, PrefixBuilder}
+import org.w3.banana.{Ops, PrefixBuilder, RDF}
 
 object LDES:
   def apply[Rdf <: RDF](using ops: Ops[Rdf]) = new LDES()

@@ -1,22 +1,20 @@
-
-import bobcats.{AsymmetricKeyAlg, PKCS8KeySpec, Signer, Verifier}
-import bobcats.util.BouncyJavaPEMUtils.getPrivateKeySpec
-import net.bblfish.wallet.{BasicId, BasicWallet}
 import _root_.io.lemonlabs.uri as ll
-import cats.effect.IO
+import bobcats.util.BouncyJavaPEMUtils.getPrivateKeySpec
+import bobcats.{AsymmetricKeyAlg, PKCS8KeySpec, Signer, Verifier}
 import cats.effect.*
+import cats.effect.unsafe.IORuntime
+import net.bblfish.app.auth.AuthNClient
+import net.bblfish.wallet.{BasicId, BasicWallet}
 import org.w3.banana.jena.JenaRdf
 import org.w3.banana.jena.JenaRdf.ops
 import ops.given
-import org.w3.banana.jena.JenaRdf.R
-import scodec.bits.ByteVector
-import cats.effect.unsafe.IORuntime
-import net.bblfish.app.auth.AuthNClient
 import org.http4s.Uri as H4Uri
 import org.w3.banana.http4sIO.RDFDecoders
+import org.w3.banana.jena.JenaRdf.R
+import scodec.bits.ByteVector
 implicit val runtime: IORuntime = cats.effect.unsafe.IORuntime.global
-import org.http4s.ember.client._
-import org.http4s.client._
+import org.http4s.client.*
+import org.http4s.ember.client.*
 
 val priv = """-----BEGIN PRIVATE KEY-----
   MIIEvgIBADALBgkqhkiG9w0BAQoEggSqMIIEpgIBAAKCAQEAr4tmm3r20Wd/Pbqv
@@ -47,28 +45,32 @@ val priv = """-----BEGIN PRIVATE KEY-----
   rOjr9w349JooGXhOxbu8nOxX
   -----END PRIVATE KEY-----"""
 
-val pkcs8K: PKCS8KeySpec[AsymmetricKeyAlg] = getPrivateKeySpec(priv,AsymmetricKeyAlg.RSA_PSS_Key).get
+val pkcs8K: PKCS8KeySpec[AsymmetricKeyAlg] =
+  getPrivateKeySpec(priv, AsymmetricKeyAlg.RSA_PSS_Key).get
 //val keyUrl: ll.Url = ll.Url("http://127.0.0.1:8080/rfcKey")
 val keyUrl = URI("http://localhost:8080/rfcKey#")
-val signerF: IO[ByteVector => IO[ByteVector]] = Signer[IO].build(pkcs8K, bobcats.AsymmetricKeyAlg.`rsa-pss-sha512`)
+val signerF: IO[ByteVector => IO[ByteVector]] =
+  Signer[IO].build(pkcs8K, bobcats.AsymmetricKeyAlg.`rsa-pss-sha512`)
 import org.w3.banana.jena.io.JenaRDFReader.given
 import org.w3.banana.jena.io.JenaRDFWriter.given
 
-val keyid = net.bblfish.wallet.KeyData[IO,R](keyUrl,signerF)
+val keyid = net.bblfish.wallet.KeyData[IO, R](keyUrl, signerF)
 
-given dec: RDFDecoders[IO,R] = new RDFDecoders()
+given dec: RDFDecoders[IO, R] = new RDFDecoders()
 import org.http4s.syntax.all.uri
 
-def ioStr(uri: H4Uri) = EmberClientBuilder.default[IO].build.use { (client: Client[IO] ) =>
-  import org.http4s.client.middleware.Logger
-  given loggedClient: Client[IO] = Logger[IO](true,true,logAction = Some(str => IO(System.out.println(str))))(client)
-  val bw = BasicWallet[IO, R](
-    Map(),
-    Seq(keyid)
-  )
-  val newClient: Client[IO] = AuthNClient[IO].apply(bw)(loggedClient)
-  newClient.expect[String](uri)
-}
+def ioStr(uri: H4Uri): IO[String] =
+  EmberClientBuilder.default[IO].build.use { (client: Client[IO]) =>
+    import org.http4s.client.middleware.Logger
+    given loggedClient: Client[IO] =
+      Logger[IO](true, true, logAction = Some(str => IO(System.out.println(str))))(client)
+    val bw = BasicWallet[IO, R](
+      Map(),
+      Seq(keyid)
+    )
+    val newClient: Client[IO] = AuthNClient[IO].apply(bw)(loggedClient)
+    newClient.expect[String](uri)
+  }
 //ioStr(uri"http://localhost:8080/").unsafeRunSync()
 //ioStr(uri"http://localhost:8080/protected/").unsafeRunSync()
 ioStr(uri"http://localhost:8080/protected/README").unsafeRunSync()

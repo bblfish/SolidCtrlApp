@@ -1,7 +1,6 @@
-package run.cosy.ld.ldes.prefix
+package run.cosy.ldes.prefix
 
-import org.w3.banana.PrefixBuilder
-import org.w3.banana.{RDF,Ops}
+import org.w3.banana.{Ops, PrefixBuilder, RDF}
 
 object WGS84:
   def apply[R <: RDF](using Ops[R]) = new WGS84()
