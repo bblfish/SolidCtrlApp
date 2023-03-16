@@ -18,45 +18,36 @@ package net.bblfish.wallet
 
 import bobcats.*
 import cats.data.NonEmptyList
-import cats.effect.Clock
-import cats.effect.Concurrent
-import cats.effect.IO
+import cats.effect.{Clock, Concurrent, IO}
 import cats.implicits.*
 import com.apicatalog.jsonld.uri.UriUtils
 import io.lemonlabs.uri as ll
 import io.lemonlabs.uri.Url
-import run.cosy.http.auth.MessageSignature
 import net.bblfish.app.Wallet
 import net.bblfish.web.util.SecurityPrefix
-import run.cosy.web.util.UrlUtil.{http4sUrlToLLUrl, llUrltoHttp4s}
 import org.http4s as h4s
 import org.http4s.client.Client
-import org.http4s.{Challenge, headers as h4hdr}
 import org.http4s.headers.Authorization
-import org.w3.banana.Ops
-import org.w3.banana.RDF
-import run.cosy.ld.http4s.RDFDecoders
-import org.w3.banana.io.JsonLd
-import org.w3.banana.io.RDFReader
-import org.w3.banana.io.Turtle
-import org.w3.banana.prefix.Cert
-import org.w3.banana.prefix.WebACL
+import org.http4s.{headers as h4hdr, Challenge}
+import org.w3.banana.io.{JsonLd, RDFReader, Turtle}
 import org.w3.banana.prefix.WebACL.apply
+import org.w3.banana.prefix.{Cert, WebACL}
+import org.w3.banana.{Ops, RDF}
 import run.cosy.http.Http
-import run.cosy.http.headers.{ReqSigInput, Rfc8941, SigInput}
-import run.cosy.http.headers.Rfc8941.IList
-import run.cosy.http.headers.Rfc8941.{SfInt, SfString}
+import run.cosy.http.auth.MessageSignature
+import run.cosy.http.headers.Rfc8941.{IList, SfInt, SfString}
 import run.cosy.http.headers.SigIn.KeyId
+import run.cosy.http.headers.{ReqSigInput, Rfc8941, SigInput}
 import run.cosy.http.messages.{NoServerContext, ReqSelectors}
 import run.cosy.http4s.Http4sTp.HT as H4
 import run.cosy.http4s.messages.SelectorFnsH4
-
-import scala.reflect.TypeTest
-import scala.util.Failure
-import scala.util.Try
+import run.cosy.ld.http4s.RDFDecoders
+import run.cosy.web.util.UrlUtil.{http4sUrlToLLUrl, llUrltoHttp4s}
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration.FiniteDuration
+import scala.reflect.TypeTest
+import scala.util.{Failure, Try}
 
 class BasicId(val username: String, val password: String)
 
@@ -79,54 +70,47 @@ class KeyData[F[_]](
 
 end KeyData
 
-
 trait ChallengeResponse:
-   //the challenge scheme for which this response is designed
-   def forChallengeScheme: String
-   
-   //
-   def respondTo[F[_]](
-    remote: ll.AbsoluteUrl, // request for original Host
-    originalRequest: h4s.Request[F],
-    response: h4s.Response[F]
-   ): F[h4s.Request[F]]
+  // the challenge scheme for which this response is designed
+  def forChallengeScheme: String
 
-/**
-  * First attempt at a Wallet, just to get things going.
-  * The wallet must be given collections of passwords for domains, KeyIDs for
-  * http signatures, cookies (!), OpenId info, ...
+  //
+  def respondTo[F[_]](
+      remote: ll.AbsoluteUrl, // request for original Host
+      originalRequest: h4s.Request[F],
+      response: h4s.Response[F]
+  ): F[h4s.Request[F]]
+
+/** First attempt at a Wallet, just to get things going. The wallet must be given collections of
+  * passwords for domains, KeyIDs for http signatures, cookies (!), OpenId info, ...
   *
-  * Note that CookieJar is a algebra for a mutable used to produce a middleware.
-  * So perhaps a wallet takes a set of middlewares
-  * each adapted for a particular situation, and it would proceed as follows:
+  * Note that CookieJar is a algebra for a mutable used to produce a middleware. So perhaps a wallet
+  * takes a set of middlewares each adapted for a particular situation, and it would proceed as
+  * follows:
   *
-  *
-  * it needs a client to follow links to the WAC rules, though it may be better
-  * if instead it were given a DataSet proxied to the web to allow caching.
-  * On the other hand with free monads one could have those be interpreted according
-  * to context... Todo: compare this way of working with free-monads.
+  * it needs a client to follow links to the WAC rules, though it may be better if instead it were
+  * given a DataSet proxied to the web to allow caching. On the other hand with free monads one
+  * could have those be interpreted according to context... Todo: compare this way of working with
+  * free-monads.
   */
 class BasicWallet[F[_], Rdf <: RDF](
-  db: Map[ll.Authority, BasicId],
-  keyIdDB: Seq[KeyData[F]]
-)(client: Client[F])(
-  using
-  ops: Ops[Rdf],
-  rdfDecoders: RDFDecoders[F, Rdf],
-  fc: Concurrent[F],
-  clock: Clock[F]
+    db: Map[ll.Authority, BasicId],
+    keyIdDB: Seq[KeyData[F]]
+)(client: Client[F])(using
+    ops: Ops[Rdf],
+    rdfDecoders: RDFDecoders[F, Rdf],
+    fc: Concurrent[F],
+    clock: Clock[F]
 ) extends Wallet[F]:
 
   val reqSel: ReqSelectors[H4] = new ReqSelectors[H4](using new SelectorFnsH4())
+  import ops.{*, given}
+  import rdfDecoders.allrdf
   import reqSel.*
   import reqSel.RequestHd.*
-
   import run.cosy.http4s.Http4sTp
   import run.cosy.http4s.Http4sTp.{*, given}
 
-  import ops.*
-  import ops.given
-  import rdfDecoders.allrdf
   import scala.language.implicitConversions
 
   def reqToH4Req(h4req: h4s.Request[F]): Http.Request[H4] =
@@ -183,8 +167,7 @@ class BasicWallet[F[_], Rdf <: RDF](
         client
           .fetchAs[RDF.rGraph[Rdf]](
             h4s.Request(
-              uri = absLink.withoutFragment,
-              headers = h4s.Headers(rdfDecoders.allRdfAccept)
+              uri = absLink.withoutFragment
             )
           )
           .flatMap { (rG: RDF.rGraph[Rdf]) =>
@@ -267,9 +250,11 @@ class BasicWallet[F[_], Rdf <: RDF](
           case Some(h4hdr.`WWW-Authenticate`(nel)) => // do we recognise a method?
             for
               url <- fc.fromTry(Try(http4sUrlToLLUrl(lastReq.uri).toAbsoluteUrl))
-              authdReq <- fc.fromTry(basicChallenge(url.authority, lastReq, nel)).handleErrorWith { _ =>
-                httpSigChallenge(url, lastReq, failed, nel)
-              }
+              authdReq <- fc
+                .fromTry(basicChallenge(url.authority, lastReq, nel))
+                .handleErrorWith { _ =>
+                  httpSigChallenge(url, lastReq, failed, nel)
+                }
             yield authdReq
       case _ => ??? // fail
   end sign
