@@ -25,7 +25,7 @@ class LdesSpider[F[_]: Concurrent, R <: RDF](
   
   
   /** given the ldes stream URL, crawl the nodes of that stream  */
-  def crawl(stream: RDF.URI[R]): F[fs2.Stream[F, RDF.Graph[R]]] =
+  def crawl(stream: RDF.URI[R]): F[fs2.Stream[F, fs2.Chunk[UriNGraph[R]]]] =
     import cats.syntax.all.toFunctorOps
     import cats.syntax.flatMap.toFlatMapOps
     for
@@ -35,15 +35,13 @@ class LdesSpider[F[_]: Concurrent, R <: RDF](
 
   /* This crawls pages forward and collects all tree.member observations...
    * This is very much tied to a particular use of ldes
-   * todo: it should be able to fetch the shEx to find out what to
-   *   collect, or an pattern object should be passed.
    * @returns an fs2.Stream of such observation mini graphs
    **/
   def crawlNodesForward(
       stream: RDF.URI[R],
       startNodes: Seq[PNGraph[R]],
       visitedRef: Ref[F, Set[RDF.URI[R]]]
-  ): fs2.Stream[F, RDF.Graph[R]] =
+  ): fs2.Stream[F, fs2.Chunk[UriNGraph[R]]] =
     import cats.syntax.all.toFlatMapOps
     fs2.Stream.unfoldLoopEval(startNodes) { nodes =>
       import cats.syntax.traverse.{*, given}
@@ -68,26 +66,12 @@ class LdesSpider[F[_]: Concurrent, R <: RDF](
           .rel(tree.node)
           .collect { case ung: UriNGraph[R] => ung }
         // we need to place the pointer on the Collection of each page
-        val collInPages: Seq[UriNGraph[R]] =
-          pages.map(ung => new UriNGraph[R](stream, ung.name, ung.graph))
-        val obs: RDF.Graph[R] = collInPages
-          .rel(tree.member)
-          .map(png =>
-            png.collect(
-              rdf.typ,
-              wgs84.location,
-              sosa.hasSimpleResult,
-              sosa.madeBySensor,
-              sosa.observedProperty,
-              sosa.resultTime
-            )()
-          )
-          .fold(Graph.empty)((g1, g2) => g1 union g2)
         (
-          obs,
+          fs2.Chunk(pages*),
           if nextPages.isEmpty then None
           else Some(nextPages)
         )
     }
   end crawlNodesForward
-  
+
+ 
