@@ -47,6 +47,7 @@ object AuthNClient:
         hotswap: Hotswap[F, Response[F]]
     ): F[Response[F]] =
       hotswap.clear *> // Release the prior connection before allocating a new
+        // todo: we should enhance the req with a signature if we already have info on the server
         hotswap.swap(client.run(req)).flatMap { (resp: Response[F]) =>
           // todo: may want a lot more flexibility than attempt numbering to determine if we should retry or not.
           resp.status match
@@ -59,7 +60,11 @@ object AuthNClient:
       // using the pattern from FollowRedirect example using Hotswap.
       // Not 100% sure this is so much needed here...
       Hotswap.create[F, Response[F]].flatMap { hotswap =>
-        Resource.eval(authLoop(req, 0, hotswap))
+        Resource.eval(
+          wallet.signFromDB(req).flatMap { possiblySignedReq =>
+            authLoop(possiblySignedReq, 0, hotswap)
+          }
+        )
       }
     }
   end apply

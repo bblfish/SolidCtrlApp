@@ -1,3 +1,19 @@
+/*
+ * Copyright 2021 Typelevel
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package run.cosy.ld
 
 import cats.effect.IO
@@ -92,8 +108,8 @@ trait LdesSimpleWebTest[R <: RDF]()(using ops: Ops[R]) extends CatsEffectSuite:
           import cats.syntax.traverse.{*, given}
           val x: Seq[IO[UriNGraph[R]]] =
             views.collect { case ung: UriNGraph[R] => ung.jump }
-          //note: a problem with x.sequence is that it would need all UriNGraphs to be complete
-          //before the IO is complete. What if some get stuck? 
+          // note: a problem with x.sequence is that it would need all UriNGraphs to be complete
+          // before the IO is complete. What if some get stuck?
           val pagesIO: IO[Seq[UriNGraph[R]]] = x.sequence
 //            val pagesIO: IO[Seq[UriNGraph[R]]] =
 //              views.collect({ case ung: UriNGraph[R] => ung.jump }).sequence

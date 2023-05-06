@@ -5,14 +5,14 @@ object Dependencies {
   object Ver {
     val scala = "3.2.2"
     val http4s = "1.0.0-M39"
-    val banana  = "0.9-c996591-SNAPSHOT"
+    val banana = "0.9-c996591-SNAPSHOT"
     val bobcats = "0.3-3236e64-SNAPSHOT"
     val httpSig = "0.4-ac23f8b-SNAPSHOT"
   }
 
   object other {
     // https://github.com/lemonlabsuk/scala-uri
-    val scalaUri = Def.setting("io.lemonlabs" %%% "scala-uri" % "4.0.2")
+    val scalaUri = Def.setting("io.lemonlabs" %%% "scala-uri" % "4.0.3")
   }
   // https://http4s.org/v1.0/client/
   object http4s {

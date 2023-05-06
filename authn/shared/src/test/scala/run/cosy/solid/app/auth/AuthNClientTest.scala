@@ -22,8 +22,7 @@ import cats.syntax.all.*
 import io.lemonlabs
 import io.lemonlabs.uri.config.UriConfig
 import net.bblfish.app.auth.AuthNClient
-import net.bblfish.wallet.BasicWallet
-import net.bblfish.wallet.BasicId
+import net.bblfish.wallet.{BasicId, BasicWallet, WalletTools}
 import org.http4s.Uri.Host
 import org.http4s.client.Client
 import org.http4s.client.dsl.Http4sClientDsl
@@ -33,10 +32,20 @@ import org.http4s.headers.*
 import org.http4s.server.middleware.authentication.BasicAuth
 import org.http4s.server.{AuthMiddleware, Router}
 import org.http4s.syntax.all.*
-import org.http4s.{AuthedRoutes, BasicCredentials, Challenge, Headers, HttpRoutes, Request, Response, Status, Uri}
+import org.http4s.{
+  AuthedRoutes,
+  BasicCredentials,
+  Challenge,
+  Headers,
+  HttpRoutes,
+  Request,
+  Response,
+  Status,
+  Uri
+}
 import org.typelevel.ci.*
 import org.w3.banana.jena.JenaRdf.R as Jena
-import java.util.concurrent.atomic.*
+import run.cosy.ld.http4s.RDFDecoders
 
 case class User(id: Long, name: String)
 
@@ -142,27 +151,27 @@ class AuthNClientTest extends munit.CatsEffectSuite {
     // test with client now
     val defaultClient: Client[IO] = Client.fromHttpApp(routes.orNotFound)
     given UriConfig = UriConfig.default
+    import org.w3.banana.jena.JenaRdf.ops
+    import org.w3.banana.io.{JsonLd, RDFXML, RelRDFReader, Turtle}
+    import org.w3.banana.jena.io.JenaRDFReader.given
+    given rdfDecoders: RDFDecoders[IO, Jena] = new run.cosy.ld.http4s.RDFDecoders[IO, Jena]
     //		val logedClient: Client[IO] = ResponseLogger[IO](true, true, logAction = Some(s => IO(println(s))))(defaultClient)
-    val client: Client[IO] = AuthNClient[IO](
-      new BasicWallet[IO,Jena](
-        Map(
-          lemonlabs.uri.Authority("localhost") ->
-            BasicId(username, password)
+    val wallet1 = new BasicWallet[IO, Jena](
+      Map(
+        lemonlabs.uri.Authority("localhost") ->
+          BasicId(username, password)
+      )
+    )(defaultClient)
+    val client: Client[IO] = AuthNClient[IO](wallet1)(defaultClient)
+    val wallet2 = BasicWallet[IO, Jena](
+      Map(
+        lemonlabs.uri.Authority("localhost") -> BasicId(
+          username,
+          password + "bad"
         )
       )
-    )(defaultClient)
-
-    val clientBad: Client[IO] = AuthNClient[IO](
-      BasicWallet[IO,Jena](
-        Map(
-          lemonlabs.uri.Authority("localhost") -> BasicId(
-            username,
-            password + "bad"
-          )
-        ),
-        List()
-      )
-    )(defaultClient)
+    )(client)
+    val clientBad: Client[IO] = AuthNClient[IO](wallet2)(defaultClient)
 
     test("Wallet Based Auth") {
       client.get(uri"http://localhost/auth") { (res: Response[IO]) =>

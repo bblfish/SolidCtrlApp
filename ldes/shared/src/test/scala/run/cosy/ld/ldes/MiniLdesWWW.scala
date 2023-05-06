@@ -1,3 +1,19 @@
+/*
+ * Copyright 2021 Typelevel
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package run.cosy.ld.ldes
 
 import cats.effect.IO
@@ -5,7 +21,7 @@ import io.lemonlabs.uri.AbsoluteUrl
 import org.w3.banana.diesel.{*, given}
 import org.w3.banana.{diesel, *}
 import run.cosy.ld.*
-import run.cosy.ld.ldes.prefix as ldesPre
+import run.cosy.ldes.prefix as ldesPre
 import run.cosy.ldes.prefix.{LDES, SOSA, TREE, WGS84}
 
 import scala.language.implicitConversions
@@ -154,14 +170,14 @@ class MiniLdesWWW[R <: RDF](using ops: Ops[R]) extends Web[IO, R]:
             -- tree.path ->- sosa.resultTime
             -- tree.value ->- ("2021-09-06T00:00:00+02" ^^ xsd.dateTimeStamp)
         )).graph ++ obsrvs(D09_05).flatten ++ (
-          rURI(".").a(ldes.EventStream)
-            -- ldes.timestampPath ->- sosa.resultTime
-            -- tree.shape ->- rURI("flows-shacl")
-            -- tree.view ->- rURI("")
-            -- tree.member ->- rURI("#3")
-            -- tree.member ->- rURI("#482")
-            -- tree.member ->- rURI("#4464")
-          ).graph.triples.toSeq
+        rURI(".").a(ldes.EventStream)
+          -- ldes.timestampPath ->- sosa.resultTime
+          -- tree.shape ->- rURI("flows-shacl")
+          -- tree.view ->- rURI("")
+          -- tree.member ->- rURI("#3")
+          -- tree.member ->- rURI("#482")
+          -- tree.member ->- rURI("#4464")
+      ).graph.triples.toSeq
     case D09_06 =>
       (rURI("").a(tree.Node)
         -- tree.relation ->- (

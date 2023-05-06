@@ -20,19 +20,20 @@ import bobcats.*
 import cats.data.NonEmptyList
 import cats.effect.{Clock, Concurrent, IO}
 import cats.implicits.*
-import com.apicatalog.jsonld.uri.UriUtils
 import io.lemonlabs.uri as ll
 import io.lemonlabs.uri.Url
 import net.bblfish.app.Wallet
 import net.bblfish.web.util.SecurityPrefix
 import org.http4s as h4s
 import org.http4s.client.Client
-import org.http4s.headers.Authorization
-import org.http4s.{headers as h4hdr, Challenge}
+import org.http4s.headers.{Authorization, Link, LinkValue}
+import org.http4s.{headers as h4hdr, Challenge, Request, Uri}
+import org.typelevel.ci.CIString
+import org.w3.banana.RDF.Statement as St
 import org.w3.banana.io.{JsonLd, RDFReader, Turtle}
 import org.w3.banana.prefix.WebACL.apply
 import org.w3.banana.prefix.{Cert, WebACL}
-import org.w3.banana.{Ops, RDF}
+import org.w3.banana.{prefix, Ops, RDF}
 import run.cosy.http.Http
 import run.cosy.http.auth.MessageSignature
 import run.cosy.http.headers.Rfc8941.{IList, SfInt, SfString}
@@ -81,6 +82,75 @@ trait ChallengeResponse:
       response: h4s.Response[F]
   ): F[h4s.Request[F]]
 
+object BasicWallet:
+  val effectiveAclLink = "effectiveAccessControl"
+  val EffectiveAclOpt = Some(effectiveAclLink)
+  val aclRelTypes = List(EffectiveAclOpt, "acl", effectiveAclLink)
+
+/** place code that only needs RDF and ops here. */
+class WalletTools[Rdf <: RDF](using ops: Ops[Rdf]):
+  import run.cosy.web.util.UrlUtil.*
+  import ops.{*, given}
+
+  val wac: WebACL[Rdf] = WebACL[Rdf]
+  val foaf = prefix.FOAF[Rdf]
+  val sec: SecurityPrefix[Rdf] = SecurityPrefix[Rdf]
+
+  def withinTry(requestUri: RDF.URI[Rdf], container: RDF.URI[Rdf]): Try[Boolean] =
+    for
+      case requ: ll.AbsoluteUrl <- requestUri.toLL
+      case ctnrU: ll.AbsoluteUrl <- container.toLL
+    yield
+      val se = requ.schemeOption == ctnrU.schemeOption
+      val ae = requ.authorityOption == ctnrU.authorityOption
+      val rp = requ.path.parts
+      // because ll.Url interprets the https://foo.bar/ as having a path with one empty string
+      val cp = ctnrU.path.parts
+      val cpClean = if cp.last == "" then cp.dropRight(1) else cp
+      val pe = rp.startsWith(cpClean)
+      se && ae && pe
+
+  extension (uri: RDF.URI[Rdf])
+    def contains(longer: RDF.URI[Rdf]): Boolean =
+      withinTry(longer, uri).getOrElse(false)
+
+  def findAclsFor(g: RDF.Graph[Rdf], requestUri: RDF.URI[Rdf]): Iterator[St.Subject[Rdf]] =
+    import run.cosy.web.util.UrlUtil.*
+    val directRules: Iterator[St.Subject[Rdf]] = g.find(`*`, wac.accessTo, requestUri).map(_.subj)
+    val defaultRules: Iterator[St.Subject[Rdf]] = g.find(`*`, wac.default, `*`).collect {
+      case ops.Triple(rule, _, defaultContainer: RDF.URI[Rdf])
+          if defaultContainer.contains(requestUri) =>
+        rule
+    }
+    directRules ++ defaultRules
+
+  def modeForMethod(method: h4s.Method): RDF.URI[Rdf] =
+    import h4s.Method.{GET, HEAD, SEARCH}
+    if List(GET, HEAD, SEARCH).contains(method) then wac.Read
+    else wac.Write
+
+  def findAgents(
+      aclGr: RDF.Graph[Rdf],
+      reqUrl: RDF.URI[Rdf],
+      mode: h4s.Method
+  ): Iterator[St.Object[Rdf]] = {
+    for
+      ruleNode <- findAclsFor(aclGr, reqUrl)
+      if !aclGr
+        .find(ruleNode, wac.mode, modeForMethod(mode))
+        .isEmpty
+      obj <- aclGr
+        .find(ruleNode, wac.agent, `*`)
+        .map(_.obj)
+        .collect[St.Subject[Rdf]] {
+          case u: RDF.URI[Rdf]   => u
+          case b: RDF.BNode[Rdf] => b
+          // todo: the key could be in a literal too !?
+        }
+    yield obj
+  }
+end WalletTools
+
 /** First attempt at a Wallet, just to get things going. The wallet must be given collections of
   * passwords for domains, KeyIDs for http signatures, cookies (!), OpenId info, ...
   *
@@ -95,13 +165,14 @@ trait ChallengeResponse:
   */
 class BasicWallet[F[_], Rdf <: RDF](
     db: Map[ll.Authority, BasicId],
-    keyIdDB: Seq[KeyData[F]]
+    keyIdDB: Seq[KeyData[F]] = Seq()
 )(client: Client[F])(using
     ops: Ops[Rdf],
     rdfDecoders: RDFDecoders[F, Rdf],
     fc: Concurrent[F],
     clock: Clock[F]
 ) extends Wallet[F]:
+  val wt: WalletTools[Rdf] = new WalletTools[Rdf]
 
   val reqSel: ReqSelectors[H4] = new ReqSelectors[H4](using new SelectorFnsH4())
   import ops.{*, given}
@@ -112,15 +183,13 @@ class BasicWallet[F[_], Rdf <: RDF](
   import run.cosy.http4s.Http4sTp.{*, given}
 
   import scala.language.implicitConversions
+  import wt.*
 
   def reqToH4Req(h4req: h4s.Request[F]): Http.Request[H4] =
     h4req.asInstanceOf[Http.Request[H4]]
 
   def h4ReqToHttpReq(h4req: Http.Request[H4]): h4s.Request[F] =
     h4req.asInstanceOf[h4s.Request[F]]
-
-  val WAC: WebACL[Rdf] = WebACL[Rdf]
-  val sec: SecurityPrefix[Rdf] = SecurityPrefix[Rdf]
 
   // todo: here we assume the request Uri usually has the Host. Need to verify, or pass the full Url
   def basicChallenge(
@@ -146,24 +215,23 @@ class BasicWallet[F[_], Rdf <: RDF](
       response: h4s.Response[F],
       nel: NonEmptyList[h4s.Challenge]
   ): F[h4s.Request[F]] =
-    val aclLinks: Seq[h4hdr.LinkValue] =
+    import BasicWallet.*
+    val aclLinks: List[LinkValue] =
       for
         httpSig <- nel.find(_.scheme == "HttpSig").toList
-        link <- response.headers.get[h4hdr.Link].toList
+        link <- response.headers.get[Link].toList
         linkVal <- link.values.toList
-        if linkVal.rel == Some("acl") // todo: also check other wac url
+        rel <- linkVal.rel.toList
+        if aclRelTypes.contains(rel)
       yield linkVal
-
-    aclLinks.headOption match // todo: we try to the first only but what if...
+    aclLinks
+      .find(_.rel == EffectiveAclOpt)
+      .orElse(aclLinks.headOption) match
       case None =>
-        fc.raiseError(
-          Exception(
-            Exception("no acl Link in header. Cannot find where the rules are.")
-          )
-        )
-      case Some(link) =>
+        fc.raiseError(Exception("no acl Link in header. Cannot find where the rules are."))
+      case Some(linkVal) =>
         val h4req = llUrltoHttp4s(requestUrl)
-        val absLink: h4s.Uri = h4req.resolve(link.uri)
+        val absLink: h4s.Uri = h4req.resolve(linkVal.uri)
         client
           .fetchAs[RDF.rGraph[Rdf]](
             h4s.Request(
@@ -177,32 +245,25 @@ class BasicWallet[F[_], Rdf <: RDF](
             val reqRes = ops.URI(originalRequest.uri.toString) // <--
             // this requires all the info to be in the same graph. Needs generalisation to
             // jump across graphs
-            val mode = modeForMethod(originalRequest.method)
-            val keyNodes = for
-              tr <- g.find(`*`, WAC.accessTo, reqRes)
-              if !g
-                .find(tr.subj, WAC.mode, mode)
-                .isEmpty // todo: too simple
-              obj <- g
-                .find(tr.subj, WAC.agent, `*`)
-                .map(_.obj)
-                .collect[RDF.Statement.Object[Rdf]] {
-                  case u: RDF.URI[Rdf]   => u
-                  case b: RDF.BNode[Rdf] => b
-                  // todo: the key could be in a literal too !?
-                }
-              tr3 <- g.find(*, sec.controller, obj)
-            yield tr3.subj
+            val keyNodes: Iterator[St.Subject[Rdf]] = for
+              agentNode <- findAgents(g, reqRes, originalRequest.method)
+              controllerTriple <- g.find(*, sec.controller, agentNode)
+            yield controllerTriple.subj
+
             import run.cosy.http4s.Http4sTp.given
-            val keys: List[KeyData[F]] = keyNodes.toList.collect { case u: RDF.URI[Rdf] =>
-              keyIdDB.find(kid => kid.keyIdAtt.value.asciiStr == u.value).toList
-            }.flatten
+            val keys: Iterable[KeyData[F]] = keyNodes
+              .collect { case u: RDF.URI[Rdf] =>
+                keyIdDB.find(kid => kid.keyIdAtt.value.asciiStr == u.value).toList
+              }
+              .flatten
+              .to(Iterable)
 
             for
               keydt <- fc.fromOption[KeyData[F]](
                 keys.headOption,
                 Exception(
-                  s"none of our keys fit the ACL $lllink for resource $reqRes accessed in $mode matches the rules in { $g } "
+                  s"none of our keys fit the ACL $lllink for resource $reqRes accessed in " +
+                    s"${originalRequest.method} matches the rules in { $g } "
                 )
               )
               signingFn <- keydt.signer
@@ -219,11 +280,6 @@ class BasicWallet[F[_], Rdf <: RDF](
               h4ReqToHttpReq(res)
           }
   end httpSigChallenge
-
-  def modeForMethod(method: h4s.Method): RDF.URI[Rdf] =
-    import h4s.Method.{GET, HEAD, SEARCH}
-    if List(GET, HEAD, SEARCH).contains(method) then WAC.Read
-    else WAC.Write
 
   /** This is different from middleware such as FollowRedirects, as that essentially continues the
     * request. Here we need to stop the request and make new ones to find the access control rules
@@ -258,5 +314,7 @@ class BasicWallet[F[_], Rdf <: RDF](
             yield authdReq
       case _ => ??? // fail
   end sign
+
+  override def signFromDB(req: h4s.Request[F]): F[h4s.Request[F]] = fc.point(req)
 
 end BasicWallet

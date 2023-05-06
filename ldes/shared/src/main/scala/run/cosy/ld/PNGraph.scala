@@ -1,3 +1,19 @@
+/*
+ * Copyright 2021 Typelevel
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package run.cosy.ld
 
 import cats.MonadError
@@ -9,10 +25,10 @@ import org.w3.banana.{Ops, RDF}
 trait Web[F[_]: Concurrent, R <: RDF]:
   /** get a Graph for the given URL (without a fragment) */
   def get(url: RDF.URI[R]): F[RDF.Graph[R]]
-  
-/** get Pointed Named Graph for given url */
+
+  /** get Pointed Named Graph for given url */
   def getPNG(url: RDF.URI[R]): F[UriNGraph[R]]
-  
+
 /** A Pointed Named Graph, ie, a pointer into a NamedGraph We don't use a case class here as
   * equality between PNGgraphs is complicated by the need to prove isomorphism between graphs, and
   * the nodes have to be equivalent.
@@ -31,9 +47,9 @@ trait PNGraph[R <: RDF]:
     * graph
     */
   def collect(
-    forward: RDF.URI[R]*
+      forward: RDF.URI[R]*
   )(
-    backward: RDF.URI[R]*
+      backward: RDF.URI[R]*
   )(using ops: Ops[R]): RDF.Graph[R] =
     import ops.{*, given}
     val f: Seq[Seq[RDF.Triple[R]]] =

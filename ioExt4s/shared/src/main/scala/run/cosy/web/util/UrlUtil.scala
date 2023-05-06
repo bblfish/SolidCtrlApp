@@ -19,8 +19,21 @@ package run.cosy.web.util
 import com.comcast.ip4s
 import io.lemonlabs.uri as ll
 import org.http4s.Uri as h4Uri
+import org.w3.banana.{Ops, RDF}
+
+import scala.util.Try
 
 object UrlUtil {
+
+  extension (h4uri: org.http4s.Uri) def toLL: ll.Url = http4sUrlToLLUrl(h4uri)
+
+  extension (llUri: ll.Url) def toh4: org.http4s.Uri = llUrltoHttp4s(llUri)
+
+  extension [R <: RDF](uri: RDF.URI[R])(using ops: Ops[R])
+    def toLL: Try[ll.Uri] =
+      import ops.{*, given}
+      ll.Uri.parseTry(uri.value)
+
   // ignoring username:password urls
   def http4sUrlToLLUrl(u: org.http4s.Uri): ll.Url =
     import u.{host as h4host, path as h4path, query as h4query, port as h4port, scheme as h4scheme}

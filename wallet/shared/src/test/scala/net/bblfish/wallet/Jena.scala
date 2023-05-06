@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-package run.cosy.ld
+package net.bblfish.wallet
 
-import org.w3.banana.jena.JenaRdf.{R, given}
+import org.w3.banana.jena.JenaRdf
+import org.w3.banana.jena.JenaRdf.ops
+type JR = JenaRdf.type
+given WalletTools[JR] = new WalletTools[JR]
 
-class JenaFoafWebTest extends FoafWebTest[R]()
-
-class JenaLdesSimpleWebTest extends LdesSimpleWebTest[R]()
-
-class JenaLdesBrokenWebTest extends LdesBrokenWebTest[R]()
+class JenaWalletToolsTest extends WalletToolsTest[JR]

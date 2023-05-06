@@ -29,4 +29,10 @@ trait Wallet[F[_]] {
     * [[https://github.com/http4s/http4s/discussions/5930#discussioncomment-3777066 cats-uri discussion]]
     */
   def sign(failed: Response[F], lastReq: Request[F]): F[Request[F]]
+
+  /** previous requests to a server will return acls and methods that can be assumed to be valid
+    * @param req
+    * @return
+    */
+  def signFromDB(req: Request[F]): F[Request[F]]
 }

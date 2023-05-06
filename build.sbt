@@ -114,7 +114,7 @@ lazy val ldes = crossProject(JVMPlatform)
     resolvers += sonatypeSNAPSHOT,
     libraryDependencies ++= Seq(
 //      cats.effect.value,
-      cats.fs2.value,
+      cats.fs2.value
     ),
     libraryDependencies ++= Seq(
       munit.value % Test,
@@ -135,11 +135,11 @@ lazy val ioExt4s = crossProject(JVMPlatform)
     resolvers += sonatypeSNAPSHOT,
     libraryDependencies ++= Seq(
       http4s.client.value,
-      banana.bananaIO.value,
+      banana.bananaIO.value
     ),
     libraryDependencies ++= Seq(
       munit.value % Test,
-      cats.munitEffect.value % Test,
+      cats.munitEffect.value % Test
     )
   )
 
