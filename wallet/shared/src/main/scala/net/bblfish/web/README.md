@@ -7,7 +7,7 @@ We need a cache for web resources.
 We could define a Cache for a given X and Y something like
 
 ```scala
-type Cache = Map[(Protocol, Domain, port), DirTree[X, Y]]
+type Cache[X] = Map[(Protocol, Domain, port), DirTree[X]]
 ```
 
 Arguably the domain and subdomains could also be part of the dirtree,
@@ -15,7 +15,7 @@ if one wanted to think of domains hierarchically.
 
 Some differences:
 
-1. dirtree.insert removes subtrees when adding a ref for a container.
+1. dirtree.insert removes subtrees when adding an ActorRef for a container.
    But:
     * would placing the cached content in the attribute help?
     * could one just rename this as `insertAndRemoveSubDirs` and create a
@@ -135,14 +135,44 @@ light and by the rules of politeness.
 ### Using actors as a Tree
 
 That is actually what Akka does. Each actor has children in the form of a tree. The only reason we needed our
-`DirTree` immutable data structure there was to more efficiently find references for those actors so that we did not
+`DirTree` immutable data structure in Reactive-Solid was to more efficiently find references for those actors so that we did not
 have to have 
 * all messages pass through one root actor and 
 * so we could reduce the message passing from paths of length n to 1
 
 But the major advantage of actors is that they make it easy to check for files only when they are needed. So we don't
 have to for example update the whole map by reading all the files present in one directory. We can just check that 
-the directory or file we need is there. (see question 1 in [using Cofree](#using-catsfreecomonadfx) above)
+the directory or file we need is there. (see question 1 in [using Cofree](#using-catsfreecomonadfx) above).
+
+Note: The gist [Typed Actors using Cats Effect, FS2 and Deferred Magic](https://gist.github.com/Swoorup/1ac9b69e0c0f1c0925d1397a94b0a762) could be useful.
+
+### Abstracting in the manner of Mules
+
+[Mules](https://github.com/davenverse/mules) is a Scala cache library that has 
+an http implementation [mules-http4s](https://github.com/davenverse/mules-http4s/tree/main).
+It uses the Tagless Final pattern to define [Cache Traits](https://github.com/davenverse/mules/blob/main/modules/core/src/main/scala/io/chrisdavenport/mules/Cache.scala)
+such as 
+
+```scala
+trait Get[F[_], K, V]{
+  def get(k: K): F[V]
+}
+trait Lookup[F[_], K, V]{
+   def lookup(k: K): F[Option[V]]
+}
+```
+which are then brought together in a Cache
+```scala
+trait Cache[F[_], K, V] 
+  extends Lookup[F, K, V]
+  with Insert[F, K, V]
+  with Delete[F, K]
+```
+But for our purposes it needs also a basic Search since we want to for example for a given
+URI find out if one of the subdirectories that contain [the default ACL](#finding-the-default-acl).
+That means that we need to have structure on the key.  Would having an ordering of keys so that 
+one can find the closest smallest key (urlpath) to a given requested one?
+
 
 ## Finding the default ACL
 
