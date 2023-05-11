@@ -1,6 +1,7 @@
 ## The Cache
 
-We need a cache for web resources that can be used by the Wallet
+We need a cache for web resources that can be used by the Wallet.
+Ideally it would also be a good tool for implementing [RFC 911: HTTP Caching](https://httpwg.org/specs/rfc9111.html#caching.negotiated.responses).
 
 ## Use Cases
 
