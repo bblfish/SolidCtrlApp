@@ -156,6 +156,10 @@ local file system correctly, allowing one to view files locally, as rendered.
 
 It also means we could use the actor hierarchy for working with the caches too.
 
+The advantage is also that as the search walks through the tree hierarchy it will find
+the closest default ACL it knows about. The further it gets to the resource the more
+precise it's knowledge of the default acl will become (if it has one).
+
 ## Using  Key-Value DBs
 
 [Mules](https://github.com/davenverse/mules) is a Scala library that abstracts over
