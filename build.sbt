@@ -123,6 +123,45 @@ lazy val ldes = crossProject(JVMPlatform)
     )
   )
 
+// make a new project called cache
+lazy val cache = crossProject(JVMPlatform)
+  .crossType(CrossType.Full)
+  .in(file("cache"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "Cache",
+    description := "Cache",
+    libraryDependencies ++= Seq(
+      cats.core.value,
+      cats.free.value,
+      http4s.core.value,
+      mules.core.value
+    ),
+    libraryDependencies ++= Seq(
+//      munit.value % Test,
+      cats.munitEffect.value % Test,
+    )
+  )
+
+
+lazy val test = crossProject(JVMPlatform)
+  .crossType(CrossType.Full)
+  .in(file("test"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "test",
+    description := "test stuff",
+    libraryDependencies ++= Seq(
+      mules.http4s.value,
+      mules.core.value,
+      mules.caffeine.value,
+      mules.ember_client.value
+    ),
+    libraryDependencies ++= Seq(
+      munit.value % Test
+    )
+  )
+
 // todo: should be moved closer to banana-rdf repo
 lazy val ioExt4s = crossProject(JVMPlatform)
   .crossType(CrossType.Full)
@@ -157,6 +196,7 @@ lazy val wallet = crossProject(JVMPlatform) // , JSPlatform)
     resolvers += sonatypeSNAPSHOT,
     libraryDependencies ++= Seq(
       http4s.client.value,
+      cats.free.value,
       http4s.ember_client.value, // <- remove. added to explore implementation
       banana.bananaJena.value,
       crypto.http4sSig.value

@@ -14,6 +14,15 @@ object Dependencies {
     // https://github.com/lemonlabsuk/scala-uri
     val scalaUri = Def.setting("io.lemonlabs" %%% "scala-uri" % "4.0.3")
   }
+  
+  object mules {
+    val core = Def.setting("io.chrisdavenport" %% "mules" % "0.7.0")
+    val caffeine = Def.setting("io.chrisdavenport" %% "mules-caffeine" % "0.7.0")
+    val http4s = Def.setting("io.chrisdavenport" %% "mules-http4s" % "0.4.0")
+    // ember uses 0.23.18
+    val ember_client =  Def.setting("org.http4s" %%% "http4s-ember-client" % "0.23.18")
+  }
+  
   // https://http4s.org/v1.0/client/
   object http4s {
     def apply(packg: String): Def.Initialize[sbt.ModuleID] =

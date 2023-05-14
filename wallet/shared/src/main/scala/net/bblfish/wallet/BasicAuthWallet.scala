@@ -162,6 +162,13 @@ end WalletTools
   * given a DataSet proxied to the web to allow caching. On the other hand with free monads one
   * could have those be interpreted according to context... Todo: compare this way of working with
   * free-monads.
+  *
+  * @param db
+  *   username/passwords per domain
+  * @param keyIdDB
+  *   Key Database
+  * @param client
+  *   The client needed to fetch acl resources on the web (should be a proxy)
   */
 class BasicWallet[F[_], Rdf <: RDF](
     db: Map[ll.Authority, BasicId],
