@@ -1,14 +1,14 @@
 package run.cosy.http.cache
 
-import cats.free.Cofree
 import cats.Eval
+import cats.free.Cofree
 import org.http4s.Uri.Path
 
 import scala.annotation.tailrec
 import scala.util.Right
 
 object DirTree:
-  //todo: we really need a Uri abstraction
+  // todo: we really need a Uri abstraction
   type Dir[X] = Map[org.http4s.Uri.Path.Segment, X]
   type DirTree[X] = Cofree[Dir[_], X]
   type Path = Seq[Path.Segment]
@@ -43,8 +43,8 @@ object DirTree:
   extension [X](thizDt: DirTree[X])
     def ->(name: Path.Segment): ZLink[X] = ZLink(thizDt, name)
 
-    /** find the closest node X available when following Path
-     * return the remaining path */
+    /** find the closest node X available when following Path return the remaining path
+      */
     @tailrec
     def find(at: Path): (Path, X) =
       at match
@@ -72,8 +72,8 @@ object DirTree:
 
       loop(thizDt, path, Seq())
     end unzipAlong
-   
-     /** find the closest node matching `select` going backwards from where we got */
+
+    /** find the closest node matching `select` going backwards from where we got */
     def findClosest(path: Path)(select: X => Boolean): Option[X] =
       unzipAlong(path) match
         case (Right(dt), zpath) => dt.head +: zpath.map(_.from.head) find select
@@ -96,9 +96,25 @@ object DirTree:
           pure(value).rezip(path.reverse.map(p => pure(default) -> p).appendedAll(zpath))
         case (Right(dt), zpath) => dt.copy(head = value).rezip(zpath)
 
+    /** set value at point `path` but wihtout creating intermediary directories. This is actually
+      * useful for deleting an entry without affecting the environement: ie. only delete what exists
+      */
+    def set(path: Path, value: X): DirTree[X] =
+      thizDt.unzipAlong(path) match
+        case (Right(dt), zpath) => dt.copy(head = value).rezip(zpath)
+        case _                  => thizDt
+
+    /** set value at point `path` but wihtout creating intermediary directories. This is actually
+      * useful for deleting an entry without affecting the environement: ie. only delete what exists
+      */
+    def setDirAt(path: Path, newDt: DirTree[X]): DirTree[X] =
+      thizDt.unzipAlong(path) match
+        case (Right(_), zpath) => newDt.rezip(zpath)
+        case _                  => thizDt
+
     /** set dirTree at path creating new directories with default values if needed
       */
-    def setDirAt(path: Path, dt: DirTree[X], default: X): DirTree[X] =
+    def insertDirAt(path: Path, dt: DirTree[X], default: X): DirTree[X] =
       thizDt.unzipAlong(path) match
         case (Left(path), zpath) => dt.rezip(path.map(p => pure(default) -> p).appendedAll(zpath))
         case (Right(dt), zpath)  => dt.rezip(zpath)

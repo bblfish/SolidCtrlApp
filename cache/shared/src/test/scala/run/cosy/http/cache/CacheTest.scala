@@ -18,12 +18,12 @@ class CacheTest extends CatsEffectSuite:
   val bblPplDir = Uri.unsafeFromString("https://bblfish.net/people/")
   val bblRoot = Uri.unsafeFromString("https://bblfish.net/")
   val anais = Uri.unsafeFromString("https://bblfish.net/people/anais/card#i")
-  
+
   val cacheIO: IO[TreeDirCache[IO, Int]] = mkCache[Int]
-  
+
   test("test url paths") {
-   assertEquals(bbl.path.segments.map(_.toString), Vector("people","henry","card"))
-   assertEquals(bblPplDir.path.segments.map(_.toString), Vector("people"))
+    assertEquals(bbl.path.segments.map(_.toString), Vector("people", "henry", "card"))
+    assertEquals(bblPplDir.path.segments.map(_.toString), Vector("people"))
   }
 
   test("first test") {
@@ -45,21 +45,38 @@ class CacheTest extends CatsEffectSuite:
   }
 
   test("test searching for a parent") {
-     for
+    val ioCache = for
       cache <- cacheIO
       _ <- cache.insert(bbl, 3)
-      _ <- cache.insert(bblPplDir,2)
-      _ <- cache.insert(bblRoot,0)
+      _ <- cache.insert(bblPplDir, 2)
+      _ <- cache.insert(bblRoot, 0)
       x <- cache.lookup(bblPplDir)
       y <- cache.lookup(anais)
-      _ <- cache.insert(anais,12)
+      _ <- cache.insert(anais, 12)
       y2 <- cache.lookup(anais)
-      z <- cache.findClosest(bbl){ oi => oi == Some(0) }
-      w <- cache.findClosest(anais){ oi => oi == Some(2) }
+      z <- cache.findClosest(bbl) { _ == Some(0) }
+      w <- cache.findClosest(anais) { _ == Some(2) }
     yield
-        assertEquals(x, Some(2))
-        assertEquals(y, None)
-        assertEquals(y2, Some(12))
-        assertEquals(z, Some(0))
-        assertEquals(w, Some(2))
+      assertEquals(x, Some(2))
+      assertEquals(y, None)
+      assertEquals(y2, Some(12))
+      assertEquals(z, Some(0))
+      assertEquals(w, Some(2))
+      cache
+
+    for
+      cache <- ioCache
+      a <- cache.lookup(anais)
+      _ <- cache.delete(bblPplDir)
+      x <- cache.lookup(bblPplDir)
+      a2 <- cache.lookup(anais)
+      _ <- cache.deleteBelow(bblPplDir)
+      a3 <- cache.lookup(anais)
+      y3 <- cache.lookup(bbl)
+    yield
+      assertEquals(a, Some(12))
+      assertEquals(x, None)
+      assertEquals(a2, Some(12))
+      assertEquals(a3, None)
+      assertEquals(y3, None)
   }
