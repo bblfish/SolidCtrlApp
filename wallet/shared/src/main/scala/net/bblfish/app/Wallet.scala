@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Typelevel
+ * Copyright 2021 bblfish.net
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,18 +21,18 @@ import org.http4s.{Request, Response}
 
 import scala.util.Try
 
-trait Wallet[F[_]] {
+trait Wallet[F[_]]:
 
-  /** if possible, sign the original request given the information provided by the 40x response.
-    *
-    * Note: For this to work, I think we need to assume that the URL in the Request is absolute. see
-    * [[https://github.com/http4s/http4s/discussions/5930#discussioncomment-3777066 cats-uri discussion]]
-    */
-  def sign(failed: Response[F], lastReq: Request[F]): F[Request[F]]
+   /** if possible, sign the original request given the information provided by the 40x response.
+     *
+     * Note: For this to work, I think we need to assume that the URL in the Request is absolute.
+     * see
+     * [[https://github.com/http4s/http4s/discussions/5930#discussioncomment-3777066 cats-uri discussion]]
+     */
+   def sign(failed: Response[F], lastReq: Request[F]): F[Request[F]]
 
-  /** previous requests to a server will return acls and methods that can be assumed to be valid
-    * @param req
-    * @return
-    */
-  def signFromDB(req: Request[F]): F[Request[F]]
-}
+   /** previous requests to a server will return acls and methods that can be assumed to be valid
+     * @param req
+     * @return
+     */
+   def signFromDB(req: Request[F]): F[Request[F]]
