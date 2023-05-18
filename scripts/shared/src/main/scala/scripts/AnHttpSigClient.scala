@@ -36,9 +36,9 @@ import org.http4s.ember.client.*
 import run.cosy.http.headers.SigIn.KeyId
 
 object AnHttpSigClient:
-  implicit val runtime: IORuntime = cats.effect.unsafe.IORuntime.global
+   implicit val runtime: IORuntime = cats.effect.unsafe.IORuntime.global
 
-  val priv = """-----BEGIN PRIVATE KEY-----
+   val priv = """-----BEGIN PRIVATE KEY-----
     MIIEvgIBADALBgkqhkiG9w0BAQoEggSqMIIEpgIBAAKCAQEAr4tmm3r20Wd/Pbqv
     P1s2+QEtvpuRaV8Yq40gjUR8y2Rjxa6dpG2GXHbPfvMs8ct+Lh1GH45x28Rw3Ry5
     3mm+oAXjyQ86OnDkZ5N8lYbggD4O3w6M6pAvLkhk95AndTrifbIFPNU8PPMO7Oyr
@@ -67,45 +67,44 @@ object AnHttpSigClient:
     rOjr9w349JooGXhOxbu8nOxX
     -----END PRIVATE KEY-----"""
 
-  lazy val pkcs8K: PKCS8KeySpec[AsymmetricKeyAlg] =
-    getPrivateKeySpec(priv, AsymmetricKeyAlg.RSA_PSS_Key).get
+   lazy val pkcs8K: PKCS8KeySpec[AsymmetricKeyAlg] =
+     getPrivateKeySpec(priv, AsymmetricKeyAlg.RSA_PSS_Key).get
 
-  val keyIdStr = "http://localhost:8080/rfcKey#"
-  // val keyUrl: ll.Url = ll.Url("http://127.0.0.1:8080/rfcKey")
-  val keyUrl = URI(keyIdStr)
-  lazy val signerF: IO[ByteVector => IO[ByteVector]] =
-    Signer[IO].build(pkcs8K, bobcats.AsymmetricKeyAlg.`rsa-pss-sha512`)
+   val keyIdStr = "http://localhost:8080/rfcKey#"
+   // val keyUrl: ll.Url = ll.Url("http://127.0.0.1:8080/rfcKey")
+   val keyUrl = URI(keyIdStr)
+   lazy val signerF: IO[ByteVector => IO[ByteVector]] = Signer[IO]
+     .build(pkcs8K, bobcats.AsymmetricKeyAlg.`rsa-pss-sha512`)
 
-  import org.w3.banana.jena.io.JenaRDFReader.given
-  import org.w3.banana.jena.io.JenaRDFWriter.given
+   import org.w3.banana.jena.io.JenaRDFReader.given
+   import org.w3.banana.jena.io.JenaRDFWriter.given
 
-  lazy val keyIdData = new KeyData[IO](KeyId(Rfc8941.SfString(keyIdStr)), signerF)
+   lazy val keyIdData = new KeyData[IO](KeyId(Rfc8941.SfString(keyIdStr)), signerF)
 
-  given dec: RDFDecoders[IO, R] = new RDFDecoders()
-  import org.http4s.syntax.all.uri
-  given wt: WalletTools[R] = new WalletTools[R]
+   given dec: RDFDecoders[IO, R] = new RDFDecoders()
+   import org.http4s.syntax.all.uri
+   given wt: WalletTools[R] = new WalletTools[R]
 
-  def ioStr(uri: H4Uri): IO[String] =
-    emberAuthClient.flatMap(_.expect[String](uri))
+   def ioStr(uri: H4Uri): IO[String] = emberAuthClient.flatMap(_.expect[String](uri))
 
-  /** Ember Client able to authenticate with above keyId */
-  def emberAuthClient: IO[Client[IO]] =
-    EmberClientBuilder.default[IO].build.use { (client: Client[IO]) =>
-      import org.http4s.client.middleware.Logger
-      val loggedClient: Client[IO] =
-        Logger[IO](true, true, logAction = Some(str => IO(System.out.println(str))))(client)
+   /** Ember Client able to authenticate with above keyId */
+   def emberAuthClient: IO[Client[IO]] = EmberClientBuilder.default[IO].build
+     .use { (client: Client[IO]) =>
+        import org.http4s.client.middleware.Logger
+        val loggedClient: Client[IO] =
+          Logger[IO](true, true, logAction = Some(str => IO(System.out.println(str))))(client)
 
-      val bw = new BasicWallet[IO, R](
-        Map(),
-        Seq(keyIdData)
-      )(loggedClient)
+        val bw = new BasicWallet[IO, R](
+          Map(),
+          Seq(keyIdData)
+        )(loggedClient)
 
-      IO(AuthNClient[IO].apply(bw)(loggedClient))
-    }
+        IO(AuthNClient[IO].apply(bw)(loggedClient))
+     }
 
-  def fetch(uriStr: String = "http://localhost:8080/protected/README"): String =
-    // ioStr(uri"http://localhost:8080/").unsafeRunSync()
-    // ioStr(uri"http://localhost:8080/protected/").unsafeRunSync()
-    ioStr(H4Uri.unsafeFromString(uriStr)).unsafeRunSync()
+   def fetch(uriStr: String = "http://localhost:8080/protected/README"): String =
+     // ioStr(uri"http://localhost:8080/").unsafeRunSync()
+     // ioStr(uri"http://localhost:8080/protected/").unsafeRunSync()
+     ioStr(H4Uri.unsafeFromString(uriStr)).unsafeRunSync()
 
 end AnHttpSigClient

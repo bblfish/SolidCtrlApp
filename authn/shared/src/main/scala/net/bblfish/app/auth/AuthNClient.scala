@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Typelevel
+ * Copyright 2021 bblfish.net
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,36 +37,35 @@ import scala.util.{Failure, Success, Try}
   * Wallet to have requests signed.
   */
 object AuthNClient:
-  def apply[F[_]: Concurrent](wallet: Wallet[F])(
-      client: Client[F]
-  ): Client[F] =
+   def apply[F[_]: Concurrent](wallet: Wallet[F])(
+       client: Client[F]
+   ): Client[F] =
 
-    def authLoop(
-        req: Request[F],
-        attempts: Int,
-        hotswap: Hotswap[F, Response[F]]
-    ): F[Response[F]] =
-      hotswap.clear *> // Release the prior connection before allocating a new
+      def authLoop(
+          req: Request[F],
+          attempts: Int,
+          hotswap: Hotswap[F, Response[F]]
+      ): F[Response[F]] = hotswap.clear *> // Release the prior connection before allocating a new
         // todo: we should enhance the req with a signature if we already have info on the server
         hotswap.swap(client.run(req)).flatMap { (resp: Response[F]) =>
           // todo: may want a lot more flexibility than attempt numbering to determine if we should retry or not.
           resp.status match
-            case Status.Unauthorized if attempts < 1 =>
-              wallet.sign(resp, req).flatMap(newReq => authLoop(newReq, attempts + 1, hotswap))
-            case _ => resp.pure[F]
+           case Status.Unauthorized if attempts < 1 =>
+             wallet.sign(resp, req).flatMap(newReq => authLoop(newReq, attempts + 1, hotswap))
+           case _ => resp.pure[F]
         }
 
-    Client { req =>
-      // using the pattern from FollowRedirect example using Hotswap.
-      // Not 100% sure this is so much needed here...
-      Hotswap.create[F, Response[F]].flatMap { hotswap =>
-        Resource.eval(
-          wallet.signFromDB(req).flatMap { possiblySignedReq =>
-            authLoop(possiblySignedReq, 0, hotswap)
-          }
-        )
+      Client { req =>
+        // using the pattern from FollowRedirect example using Hotswap.
+        // Not 100% sure this is so much needed here...
+        Hotswap.create[F, Response[F]].flatMap { hotswap =>
+          Resource.eval(
+            wallet.signFromDB(req).flatMap { possiblySignedReq =>
+              authLoop(possiblySignedReq, 0, hotswap)
+            }
+          )
+        }
       }
-    }
-  end apply
+   end apply
 
 end AuthNClient

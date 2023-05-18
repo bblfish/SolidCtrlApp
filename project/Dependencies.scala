@@ -1,5 +1,5 @@
-import org.portablescala.sbtplatformdeps.PlatformDepsPlugin.autoImport._
-import sbt.{Def, _}
+import org.portablescala.sbtplatformdeps.PlatformDepsPlugin.autoImport.*
+import sbt.{Def, *}
 
 object Dependencies {
   object Ver {
@@ -9,24 +9,21 @@ object Dependencies {
     val bobcats = "0.3-3236e64-SNAPSHOT"
     val httpSig = "0.4-ac23f8b-SNAPSHOT"
   }
-
   object other {
     // https://github.com/lemonlabsuk/scala-uri
     val scalaUri = Def.setting("io.lemonlabs" %%% "scala-uri" % "4.0.3")
   }
-  
   object mules {
     val core = Def.setting("io.chrisdavenport" %% "mules" % "0.7.0")
     val caffeine = Def.setting("io.chrisdavenport" %% "mules-caffeine" % "0.7.0")
     val http4s = Def.setting("io.chrisdavenport" %% "mules-http4s" % "0.4.0")
     // ember uses 0.23.18
-    val ember_client =  Def.setting("org.http4s" %%% "http4s-ember-client" % "0.23.18")
+    val ember_client = Def.setting("org.http4s" %%% "http4s-ember-client" % "0.23.18")
   }
-  
   // https://http4s.org/v1.0/client/
   object http4s {
-    def apply(packg: String): Def.Initialize[sbt.ModuleID] =
-      Def.setting("org.http4s" %%% packg % Ver.http4s)
+    def apply(packg: String): Def.Initialize[sbt.ModuleID] = Def
+      .setting("org.http4s" %%% packg % Ver.http4s)
     lazy val core = http4s("http4s-core")
     lazy val client = http4s("http4s-client")
     // ember is an implementation of the client.
@@ -37,7 +34,6 @@ object Dependencies {
     // https://search.maven.org/artifact/org.http4s/http4s-dom_sjs1_3/1.0.0-M37/jar
     lazy val Dom = Def.setting("org.http4s" %%% "http4s-dom" % "1.0.0-M36")
   }
-
   object cats {
     lazy val core = Def.setting("org.typelevel" %%% "cats-core" % "2.9.0")
     lazy val free = Def.setting("org.typelevel" %%% "cats-free" % "2.9.0")
@@ -47,10 +43,8 @@ object Dependencies {
 
     // https://github.com/typelevel/munit-cats-effect
     // https://search.maven.org/artifact/org.typelevel/munit-cats-effect_3/2.0.0-M3/jar
-    lazy val munitEffect =
-      Def.setting("org.typelevel" %%% "munit-cats-effect" % "2.0.0-M3")
+    lazy val munitEffect = Def.setting("org.typelevel" %%% "munit-cats-effect" % "2.0.0-M3")
   }
-
   object crypto {
     // https://oss.sonatype.org/content/repositories/snapshots/net/bblfish/crypto/bobcats_3/
     lazy val http4sSig = Def.setting(
@@ -59,22 +53,17 @@ object Dependencies {
     lazy val nimbusJWT_JDK = Def.setting("com.nimbusds" % "nimbus-jose-jwt" % "9.25.4")
     lazy val bouncyJCA_JDK = Def.setting("org.bouncycastle" % "bcpkix-jdk18on" % "1.72")
     // https://oss.sonatype.org/content/repositories/snapshots/net/bblfish/crypto/bobcats_3/
-    lazy val bobcats =
-      Def.setting("net.bblfish.crypto" %%% "bobcats" % Ver.bobcats)
+    lazy val bobcats = Def.setting("net.bblfish.crypto" %%% "bobcats" % Ver.bobcats)
   }
 
   // not published yet
   object banana {
-    lazy val bananaRdf =
-      Def.setting("net.bblfish.rdf" %%% "banana-rdf" % Ver.banana)
+    lazy val bananaRdf = Def.setting("net.bblfish.rdf" %%% "banana-rdf" % Ver.banana)
     lazy val bananaIO = Def.setting("net.bblfish.rdf" %%% "banana-jena-io-sync" % Ver.banana)
-    lazy val bananaJena =
-      Def.setting("net.bblfish.rdf" %%% "banana-jena-io-sync" % Ver.banana)
+    lazy val bananaJena = Def.setting("net.bblfish.rdf" %%% "banana-jena-io-sync" % Ver.banana)
   }
-
   val scalajsDom = Def.setting("org.scala-js" %%% "scalajs-dom" % "2.0.0")
-  val bananaRdfLib =
-    Def.setting("net.bblfish.rdf" %%% "rdflibJS" % "0.9-SNAPSHOT")
+  val bananaRdfLib = Def.setting("net.bblfish.rdf" %%% "rdflibJS" % "0.9-SNAPSHOT")
 
   val munit = Def.setting("org.scalameta" %%% "munit" % "1.0.0-M7")
 //  val utest = Def.setting("com.lihaoyi" %%% "utest" % "0.7.10")
@@ -89,4 +78,5 @@ object Dependencies {
     val n3 = "n3" -> "1.11.2"
     val jsDom = "jsdom" -> "18.1.1"
   }
+
 }

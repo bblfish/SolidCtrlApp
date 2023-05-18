@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Typelevel
+ * Copyright 2021 bblfish.net
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,21 +35,21 @@ class H4Web[F[_]: Concurrent, R <: RDF](
 )(using
     val rdfDecoders: RDFDecoders[F, R]
 ) extends Web[F, R]:
-  import cats.syntax.all.*
-  import rdfDecoders.ops
-  import rdfDecoders.allrdf
-  import ops.{*, given}
+   import cats.syntax.all.*
+   import rdfDecoders.ops
+   import rdfDecoders.allrdf
+   import ops.{*, given}
 
-  override def get(url: RDF.URI[R]): F[RDF.Graph[R]] =
-    for
-      u <- Concurrent[F].fromEither(h4s.Uri.fromString(url.value))
-      doc = u.withoutFragment
-      rG <- client.fetchAs[RDF.rGraph[R]](
-        h4s.Request(uri = doc)
-      )
-    yield rG.resolveAgainst(http4sUrlToLLUrl(doc).toAbsoluteUrl)
+   override def get(url: RDF.URI[R]): F[RDF.Graph[R]] =
+     for
+        u <- Concurrent[F].fromEither(h4s.Uri.fromString(url.value))
+        doc = u.withoutFragment
+        rG <- client.fetchAs[RDF.rGraph[R]](
+          h4s.Request(uri = doc)
+        )
+     yield rG.resolveAgainst(http4sUrlToLLUrl(doc).toAbsoluteUrl)
 
-  // todo: this should really use client.fetchPNG
-  override def getPNG(url: RDF.URI[R]): F[UriNGraph[R]] =
-    val doc = url.fragmentLess
-    get(doc).map(g => UriNGraph(url, doc, g))
+   // todo: this should really use client.fetchPNG
+   override def getPNG(url: RDF.URI[R]): F[UriNGraph[R]] =
+      val doc = url.fragmentLess
+      get(doc).map(g => UriNGraph(url, doc, g))

@@ -1,10 +1,10 @@
 import sbt.ThisBuild
 import sbtcrossproject.CrossPlugin.autoImport.{crossProject, CrossType}
-import Dependencies._
+import Dependencies.*
 
 name := "SolidApp"
 ThisBuild / organization := "net.bblfish"
-ThisBuild / version := "0.1"
+ThisBuild / version := "0.2"
 ThisBuild / scalaVersion := Ver.scala
 ThisBuild / startYear := Some(2021)
 ThisBuild / developers := List(
@@ -15,8 +15,9 @@ ThisBuild / developers := List(
 
 lazy val commonSettings = Seq(
   name := "Solid App",
-  version := "0.1-SNAPSHOT",
+  version := "0.2-SNAPSHOT",
   description := "Solid App",
+  headerLicense := Some(HeaderLicense.ALv2("2021", "bblfish.net")),
   startYear := Some(2021),
   scalaVersion := Ver.scala,
   updateOptions := updateOptions.value.withCachedResolution(
@@ -55,10 +56,7 @@ resolvers += "jitpack" at "https://jitpack.io"
 //)
 
 lazy val authN = crossProject(JVMPlatform) // , JSPlatform)
-  .crossType(CrossType.Full)
-  .in(file("authn"))
-  .settings(commonSettings: _*)
-  .settings(
+  .crossType(CrossType.Full).in(file("authn")).settings(commonSettings*).settings(
     name := "AuthNClient",
     description := "Http Client Middleware that knows how to use a Wallet interface to authenticate",
     // scalacOptions := scala3jsOptions,
@@ -84,14 +82,10 @@ lazy val authN = crossProject(JVMPlatform) // , JSPlatform)
     // do I also need to run `npm install n3` ?
     // Compile / npmDependencies += NPM.n3,
     //   Test / npmDependencies += NPM.n3
-  )
-  .dependsOn(wallet)
+  ).dependsOn(wallet)
 
 lazy val free = crossProject(JVMPlatform) // , JSPlatform)
-  .crossType(CrossType.Full)
-  .in(file("free"))
-  .settings(commonSettings: _*)
-  .settings(
+  .crossType(CrossType.Full).in(file("free")).settings(commonSettings*).settings(
     name := "Free LDP",
     description := "Free LDP client and provisionally interpreters (to be moved)",
     libraryDependencies ++= Seq(
@@ -102,12 +96,8 @@ lazy val free = crossProject(JVMPlatform) // , JSPlatform)
   )
 
 // an LDES client
-lazy val ldes = crossProject(JVMPlatform)
-  .crossType(CrossType.Full)
-  .in(file("ldes"))
-  .dependsOn(ioExt4s)
-  .settings(commonSettings: _*)
-  .settings(
+lazy val ldes = crossProject(JVMPlatform).crossType(CrossType.Full).in(file("ldes"))
+  .dependsOn(ioExt4s).settings(commonSettings*).settings(
     name := "LDES Client",
     description := "Linked Data Event Stream Libraries and Client",
     // scalacOptions := scala3jsOptions,
@@ -124,31 +114,26 @@ lazy val ldes = crossProject(JVMPlatform)
   )
 
 // make a new project called cache
-lazy val cache = crossProject(JVMPlatform)
-  .crossType(CrossType.Full)
-  .in(file("cache"))
-  .settings(commonSettings: _*)
-  .settings(
+lazy val cache = crossProject(JVMPlatform).crossType(CrossType.Full).in(file("cache"))
+  .settings(commonSettings*).settings(
     name := "Cache",
     description := "Cache",
     libraryDependencies ++= Seq(
       cats.core.value,
       cats.free.value,
       http4s.core.value,
+      http4s.client.value,
       mules.core.value
     ),
     libraryDependencies ++= Seq(
 //      munit.value % Test,
       cats.munitEffect.value % Test,
+      http4s.theDsl.value % Test
     )
   )
 
-
-lazy val test = crossProject(JVMPlatform)
-  .crossType(CrossType.Full)
-  .in(file("test"))
-  .settings(commonSettings: _*)
-  .settings(
+lazy val test = crossProject(JVMPlatform).crossType(CrossType.Full).in(file("test"))
+  .settings(commonSettings*).settings(
     name := "test",
     description := "test stuff",
     libraryDependencies ++= Seq(
@@ -163,11 +148,8 @@ lazy val test = crossProject(JVMPlatform)
   )
 
 // todo: should be moved closer to banana-rdf repo
-lazy val ioExt4s = crossProject(JVMPlatform)
-  .crossType(CrossType.Full)
-  .in(file("ioExt4s"))
-  .settings(commonSettings: _*)
-  .settings(
+lazy val ioExt4s = crossProject(JVMPlatform).crossType(CrossType.Full).in(file("ioExt4s"))
+  .settings(commonSettings*).settings(
     name := "IO http4s ext",
     description := "rdf io extensions for http4s",
     // scalacOptions := scala3jsOptions,
@@ -185,10 +167,7 @@ lazy val ioExt4s = crossProject(JVMPlatform)
 //todo: we should split the wallet into client-wallet and the full wallet library
 // as clients of the wallet only need a minimal interface
 lazy val wallet = crossProject(JVMPlatform) // , JSPlatform)
-  .crossType(CrossType.Full)
-  .in(file("wallet"))
-  .dependsOn(ioExt4s)
-  .settings(commonSettings: _*)
+  .crossType(CrossType.Full).in(file("wallet")).dependsOn(ioExt4s).settings(commonSettings*)
   .settings(
     name := "Solid Wallet",
     description := "Solid Wallet libraries	",
@@ -223,8 +202,7 @@ lazy val wallet = crossProject(JVMPlatform) // , JSPlatform)
     // Test / npmDependencies += NPM.n3
   )
 
-lazy val scripts = crossProject(JVMPlatform)
-  .in(file("scripts"))
+lazy val scripts = crossProject(JVMPlatform).in(file("scripts"))
 //  .settings(
 //    libraryDependencies ++= Seq(
 //      other.scalaUri.value,
@@ -232,8 +210,7 @@ lazy val scripts = crossProject(JVMPlatform)
 //      crypto.bobcats.value classifier ("tests-sources") // bobcats test examples soources,
 //    )
 //  )
-  .dependsOn(wallet, authN, ldes)
-  .jvmSettings(
+  .dependsOn(wallet, authN, ldes).jvmSettings(
     libraryDependencies ++= Seq(
       crypto.bobcats.value classifier ("tests"), // bobcats test examples,
       crypto.bobcats.value classifier ("tests-sources"), // bobcats test examples soources,

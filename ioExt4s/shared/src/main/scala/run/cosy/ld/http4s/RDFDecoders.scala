@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Typelevel
+ * Copyright 2021 bblfish.net
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,59 +48,57 @@ class RDFDecoders[F[_], Rdf <: RDF](using
     jsonLDReader: RelRDFReader[Rdf, Try, JsonLd]
 ):
 
-  private def decoderForRdfReader[T](mt: MediaRange, mts: MediaRange*)(
-      reader: RelRDFReader[Rdf, Try, T],
-      errmsg: String
-  ): EntityDecoder[F, rGraph[Rdf]] =
-    given defaultCharset: Charset = Charset.`UTF-8`
-    EntityDecoder.decodeBy[F, rGraph[Rdf]](mt, mts: _*) { msg =>
-      val txt: F[String] = EntityDecoder.decodeText[F](msg)
-      EitherT[F, DecodeFailure, rGraph[Rdf]](
-        cc.flatMap[String, Either[DecodeFailure, rGraph[Rdf]]](txt) { s =>
-          reader.read(new java.io.StringReader(s)) match
-            case Success(rg) => cc.pure(Right(rg))
-            case Failure(err) =>
-              cc.pure(Left(MalformedMessageBodyFailure(errmsg, Some(err))))
-        }
-      )
-    }
-  import MediaType.{application, text}
-  import MediaType.application.`ld+json`
+   private def decoderForRdfReader[T](mt: MediaRange, mts: MediaRange*)(
+       reader: RelRDFReader[Rdf, Try, T],
+       errmsg: String
+   ): EntityDecoder[F, rGraph[Rdf]] =
+      given defaultCharset: Charset = Charset.`UTF-8`
+      EntityDecoder.decodeBy[F, rGraph[Rdf]](mt, mts*) { msg =>
+         val txt: F[String] = EntityDecoder.decodeText[F](msg)
+         EitherT[F, DecodeFailure, rGraph[Rdf]](
+           cc.flatMap[String, Either[DecodeFailure, rGraph[Rdf]]](txt) { s =>
+             reader.read(new java.io.StringReader(s)) match
+              case Success(rg) => cc.pure(Right(rg))
+              case Failure(err) => cc.pure(Left(MalformedMessageBodyFailure(errmsg, Some(err))))
+           }
+         )
+      }
+   import MediaType.{application, text}
+   import MediaType.application.`ld+json`
 
-  // add to offiwcial types along with those described here:
-  // https://github.com/co-operating-systems/Reactive-SoLiD/blob/master/src/main/scala/run/cosy/http/RDFMediaTypes.scala
-  lazy val ntriples: MediaType =
-    new MediaType(
-      "application",
-      "n-triples",
-      Compressible,
-      NotBinary,
-      List("nt")
-    )
+   // add to offiwcial types along with those described here:
+   // https://github.com/co-operating-systems/Reactive-SoLiD/blob/master/src/main/scala/run/cosy/http/RDFMediaTypes.scala
+   lazy val ntriples: MediaType = new MediaType(
+     "application",
+     "n-triples",
+     Compressible,
+     NotBinary,
+     List("nt")
+   )
 
-  val turtleDecoder: EntityDecoder[F, rGraph[Rdf]] = decoderForRdfReader(text.turtle, ntriples)(
-    turtleReader,
-    "Rdf Turtle Reader failed"
-  )
-  val rdfxmlDecoder: EntityDecoder[F, rGraph[Rdf]] = decoderForRdfReader(application.`rdf+xml`)(
-    rdfXmlReader,
-    "Rdf Rdf/XML Reader failed"
-  )
+   val turtleDecoder: EntityDecoder[F, rGraph[Rdf]] = decoderForRdfReader(text.turtle, ntriples)(
+     turtleReader,
+     "Rdf Turtle Reader failed"
+   )
+   val rdfxmlDecoder: EntityDecoder[F, rGraph[Rdf]] = decoderForRdfReader(application.`rdf+xml`)(
+     rdfXmlReader,
+     "Rdf Rdf/XML Reader failed"
+   )
 //  val ntriplesDecoder = decoderForRdfReader(application.`n-triples`)(
 //    ntriplesReader, "NTriples  Reader failed"
 //  )
-  val jsonldDecoder: EntityDecoder[F, rGraph[Rdf]] = decoderForRdfReader(application.`ld+json`)(
-    jsonLDReader,
-    "Json-LD Reader failed"
-  )
+   val jsonldDecoder: EntityDecoder[F, rGraph[Rdf]] = decoderForRdfReader(application.`ld+json`)(
+     jsonLDReader,
+     "Json-LD Reader failed"
+   )
 
-  given allrdf: EntityDecoder[F, rGraph[Rdf]] =
-    turtleDecoder orElse rdfxmlDecoder orElse jsonldDecoder
+   given allrdf: EntityDecoder[F, rGraph[Rdf]] =
+     turtleDecoder orElse rdfxmlDecoder orElse jsonldDecoder
 
-  val allRdfAccept = Accept(
-    text.turtle.withQValue(QValue.One),
-    ntriples.withQValue(QValue.One),
-    application.`ld+json`.withQValue(qValue"0.8"),
-    application.`rdf+xml`.withQValue(qValue"0.8")
-  )
+   val allRdfAccept = Accept(
+     text.turtle.withQValue(QValue.One),
+     ntriples.withQValue(QValue.One),
+     application.`ld+json`.withQValue(qValue"0.8"),
+     application.`rdf+xml`.withQValue(qValue"0.8")
+   )
 end RDFDecoders
