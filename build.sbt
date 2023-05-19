@@ -1,6 +1,6 @@
 import sbt.ThisBuild
 import sbtcrossproject.CrossPlugin.autoImport.{crossProject, CrossType}
-import Dependencies.*
+import Dependencies._
 
 name := "SolidApp"
 ThisBuild / organization := "net.bblfish"

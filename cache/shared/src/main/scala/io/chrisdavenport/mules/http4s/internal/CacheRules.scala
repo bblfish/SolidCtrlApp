@@ -137,35 +137,40 @@ private[http4s] object CacheRules:
      } || response.headers.get(CIString("Pragma")).exists(_.exists(_.value === "no-cache"))
 
    def isCacheable[F[_]](req: Request[F], response: Response[F], cacheType: CacheType): Boolean =
-     if !cacheableMethods.contains(req.method) then
-        // println(s"Request Method ${req.method} - not Cacheable")
-        false
-     else if !statusIsCacheable(response.status) then
-        // println(s"Response Status ${response.status} - not Cacheable")
-        false
-     else if cacheControlNoStoreExists(response) then
-        // println("Cache-Control No-Store is present - not Cacheable")
-        false
-     else if cacheType.isShared && cacheControlPrivateExists(response) then
-        // println("Cache is shared and Cache-Control private exists - not Cacheable")
-        false
-     else if cacheType.isShared && response.headers.get(CIString("Vary"))
-          .exists(h => h.exists(_.value === "*"))
-     then
-        // println("Cache is shared and Vary header exists as * - not Cacheable")
-        false
-     else if cacheType.isShared && authorizationHeaderExists(response) && !cacheControlPublicExists(
-          response
-        )
-     then
-        // println("Cache is Shared and Authorization Header is present and Cache-Control public is not present - not Cacheable")
-        false
-     else if mustRevalidate(response) && !(response.headers.get[ETag].isDefined || response.headers
-          .get[`Last-Modified`].isDefined)
-     then false
-     else if req.method === Method.GET || req.method === Method.HEAD then true
-     else if cacheControlPublicExists(response) || cacheControlPrivateExists(response) then true
-     else response.headers.get[Expires].isDefined
+      val cachable =
+        if !cacheableMethods.contains(req.method) then
+           // println(s"Request Method ${req.method} - not Cacheable")
+           false
+        else if !statusIsCacheable(response.status) then
+           // println(s"Response Status ${response.status} - not Cacheable")
+           false
+        else if cacheControlNoStoreExists(response) then
+           // println("Cache-Control No-Store is present - not Cacheable")
+           false
+        else if cacheType.isShared && cacheControlPrivateExists(response) then
+           // println("Cache is shared and Cache-Control private exists - not Cacheable")
+           false
+        else if cacheType.isShared && response.headers.get(CIString("Vary"))
+             .exists(h => h.exists(_.value === "*"))
+        then
+           // println("Cache is shared and Vary header exists as * - not Cacheable")
+           false
+        else if cacheType.isShared && authorizationHeaderExists(
+             response
+           ) && !cacheControlPublicExists(
+             response
+           )
+        then
+           // println("Cache is Shared and Authorization Header is present and Cache-Control public is not present - not Cacheable")
+           false
+        else if mustRevalidate(response) && !(response.headers.get[ETag].isDefined || response
+             .headers.get[`Last-Modified`].isDefined)
+        then false
+        else if req.method === Method.GET || req.method === Method.HEAD then true
+        else if cacheControlPublicExists(response) || cacheControlPrivateExists(response) then true
+        else response.headers.get[Expires].isDefined
+      // println(s"Cacheable($req, $response)= " + cachable)
+      cachable
 
    def shouldInvalidate[F[_]](request: Request[F], response: Response[F]): Boolean =
      if Set(Status.NotFound, Status.Gone).contains(response.status) then true

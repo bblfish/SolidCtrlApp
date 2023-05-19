@@ -1,19 +1,3 @@
-/*
- * Copyright 2021 bblfish.net
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package run.cosy.http.cache
 
 import cats.effect.{IO, Async}
@@ -50,7 +34,7 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
      Web.httpRoutes[IO].orNotFound.run(Request[IO](uri = Uri(path = Root))).map { response =>
         assertEquals(response.status, Status.Ok)
         assertEquals(
-          response.headers,
+          removeDate(response.headers),
           Web.headers("/")
         )
      } >> Web.httpRoutes[IO].orNotFound.run(
@@ -60,7 +44,7 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
      ).map { response =>
         assertEquals(response.status, Status.Ok)
         assertEquals(
-          response.headers,
+          removeDate(response.headers),
           Web.headers("world-at-peace", Some("/people/henry/blog/"), MediaType.text.plain)
         )
         assertEquals(
@@ -70,11 +54,23 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
      }
    }
    def bytesToString(bytes: Vector[Byte]): String = bytes.map(_.toChar).mkString
+   def parseMap(body: String): Map[String, Int] = body.split("\n").map(_.split(" -> "))
+     .map { case Array(path, count) => (path, count.toInt) }.toMap
 
-   test("test string cache") {
-     for ref <- Ref.of[IO, WebCache[CacheItem[String]]](Map.empty)
-     yield
-        val clientMiddleWare = InterpretedCacheMiddleware.app[IO, String](
+   val worldPeace: Uri = Uri
+     .unsafeFromString("https://bblfish.net/people/henry/blog/2023/04/01/world-at-peace")
+   val bbl: Uri = Uri.unsafeFromString("https://bblfish.net/")
+   val counterUri = Uri.unsafeFromString("https://bblfish.net/counter")
+
+   /** we need dates so that caching can work but it is tricky to compare them */
+   def removeDate(headers: Headers): Headers =
+      import org.typelevel.ci.CIStringSyntax
+      headers.transform(l => l.filterNot(_.name == ci"Date"))
+
+   test("test String Cache") {
+     for
+        ref <- Ref.of[IO, WebCache[CacheItem[String]]](Map.empty)
+        stringCacheMiddleWare = InterpretedCacheMiddleware.app[IO, String](
           TreeDirCache[IO, CacheItem[String]](ref),
           (response: Response[IO]) =>
             response.bodyText.compile.toVector.map { vec =>
@@ -86,32 +82,66 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
               )
             }
         )
-
-        val bbl: Uri = Uri
-          .unsafeFromString("https://bblfish.net/people/henry/blog/2023/04/01/world-at-peace")
-        assertNotEquals(bbl, null)
-        val interpretedClient = clientMiddleWare(Web.httpRoutes[IO].orNotFound)
-        val req = Request[IO](Method.GET, bbl)
-        val resp: CachedResponse[String] = interpretedClient.run(req).unsafeRunSync()
-        assertEquals(resp.status, Status.Ok)
+        cachedClient = stringCacheMiddleWare(Web.httpRoutes[IO].orNotFound)
+        respWP1 <- cachedClient.run(Request[IO](Method.GET, worldPeace))
+        respRoot <- cachedClient.run(Request[IO](Method.GET, bbl))
+        rescounter1 <- cachedClient.run(Request[IO](Method.GET, counterUri))
+        respWP2 <- cachedClient.run(Request[IO](Method.GET, worldPeace))
+        rescounter2 <- cachedClient.run(Request[IO](Method.GET, counterUri))
+        respRoot2 <- cachedClient.run(Request[IO](Method.GET, bbl))
+        rescounter3 <- cachedClient.run(Request[IO](Method.GET, counterUri))
+     yield
+        assertEquals(respWP1.status, Status.Ok)
         assertEquals(
-          resp.headers,
+          removeDate(respWP1.headers),
           Web.headers("world-at-peace", Some("/people/henry/blog/"), MediaType.text.plain)
         )
         assertEquals(
-          resp.body,
+          respWP1.body,
           Some("Hello World!")
         )
-     //   val resp2 = client(Web.httpRoutes[IO].orNotFound).run(req).unsafeRunSync()
-     //   assertEquals(resp2.status, Status.Ok)
-     //   assertEquals(
-     //     resp2.headers,
-     //     Web.headers("/")
-     //   )
-     //   assertEquals(
-     //     resp2.body.compile.toVector.unsafeRunSync(),
-     //     ByteVector("Hello World!".getBytes())
-     //   )
+        assertEquals(respRoot.status, Status.Ok)
+        assertEquals(
+          removeDate(respRoot.headers),
+          Web.headers("/")
+        )
+        assertEquals(
+          respRoot.body,
+          Some(Web.rootTtl)
+        )
+        assertEquals(rescounter1.status, Status.Ok)
+        rescounter1.body.map { body =>
+           val c1 = parseMap(body)
+           assertEquals(c1(worldPeace.path.toString), 1)
+           assertEquals(c1(bbl.path.toString), 1)
+           assertEquals(c1(counterUri.path.toString), 1)
+        }.getOrElse(fail("no body"))
+
+        assertEquals(respWP2.status, Status.Ok)
+        assertEquals(
+          removeDate(respWP1.headers),
+          Web.headers("world-at-peace", Some("/people/henry/blog/"), MediaType.text.plain)
+        )
+        assertEquals(rescounter2.status, Status.Ok)
+        rescounter2.body.map { body =>
+           val c1 = parseMap(body)
+           assertEquals(c1(worldPeace.path.toString), 1)
+           assertEquals(c1(bbl.path.toString), 1)
+           assertEquals(c1(counterUri.path.toString), 1)
+        }.getOrElse(fail("no body for 2nd req to " + counterUri))
+
+        assertEquals(respRoot2.status, Status.Ok)
+        assertEquals(
+          respRoot2.body,
+          Some(Web.rootTtl)
+        )
+        rescounter3.body.map { body =>
+           val c1 = parseMap(body)
+           assertEquals(c1(worldPeace.path.toString), 1)
+           assertEquals(c1(bbl.path.toString), 1)
+           assertEquals(c1(counterUri.path.toString), 1)
+        }.getOrElse(fail("no body for 3rd req to " + counterUri))
+
    }
 
 end InterpretedCacheMiddleTest
