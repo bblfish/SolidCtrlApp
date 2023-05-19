@@ -79,7 +79,7 @@ object Web:
      |   wac:agentClass foaf:Agent;
      |   wac:accessTo <.> ;
      |   wac:default <.> .
-         """.stripMargin
+     |""".stripMargin
 
    val rootTtl = """
      |@prefix ldp: <http://www.w3.org/ns/ldp#> .
@@ -93,33 +93,34 @@ object Web:
      |
      |	foaf.name "Henry Story";
      |	foaf.knows <https://www.w3.org/People/Berners-Lee/card#i> .
-     	""".stripMargin
+     |""".stripMargin
 
    val bblBlogAcr = """
-         @prefix wac: <http://www.w3.org/ns/auth/acl#> .
-         @prefix foaf: <http://xmlns.com/foaf/0.1/> .
-         
-         <#R1> a wac:Authorization;
-            wac:mode wac:Control;
-            wac:agent <card#me>;
-            wac:default <.> .
-         
-         <#R2> a wac:Authorization;
-            wac:mode wac:Read;
-            wac:agentClass foaf:Agent;
-            wac:default <.> .
-         
-         <#R3> a wac:Authorization;
-            wac:mode wac:Read;
-            wac:agentClass foaf:Agent;
-            wac:default <.> .
-         """.stripMargin
+     |@prefix wac: <http://www.w3.org/ns/auth/acl#> .
+     |@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+     |
+     |<#R1> a wac:Authorization;
+     |   wac:mode wac:Control;
+     |   wac:agent <card#me>;
+     |   wac:default <.> .
+     |
+     |<#R2> a wac:Authorization;
+     |   wac:mode wac:Read;
+     |   wac:agentClass foaf:Agent;
+     |   wac:default <.> .
+     |
+     |<#R3> a wac:Authorization;
+     |   wac:mode wac:Read;
+     |   wac:agentClass foaf:Agent;
+     |   wac:default <.> .
+     |""".stripMargin
 
    def httpRoutes[F[_]: Monad: Clock](using
        AS: Async[F]
    ): HttpRoutes[F] =
       val counter = AtomicReference(Map.empty[Uri.Path, Int])
       val inc = Kleisli[OptionT[F, *], Request[F], Request[F]] { req =>
+         ntln("server received request " + req.method + req.uri.path)
          OptionT.liftF(AS.delay {
            counter.updateAndGet { m =>
               val count = m.getOrElse(req.uri.path, 0)
@@ -163,11 +164,11 @@ object Web:
           OK[F](cntStr, headers("/counter", Some("/"), MediaType.text.plain))
       }
       val addTime: Kleisli[OptionT[F, *], Response[F], Response[F]] =
-        Kleisli[OptionT[F, *], Response[F], Response[F]] { resp => 
-          OptionT.liftF[F,HttpDate](HttpDate.current[F]).map { now =>
+        Kleisli[OptionT[F, *], Response[F], Response[F]] { resp =>
+          OptionT.liftF[F, HttpDate](HttpDate.current[F]).map { now =>
             resp.putHeaders(Date(now))
-          } 
-      }
+          }
+        }
       inc andThen routes andThen addTime
 
    def OK[F[_]: Async](body: String, headers: Headers): F[Response[F]] = Async[F].pure(
