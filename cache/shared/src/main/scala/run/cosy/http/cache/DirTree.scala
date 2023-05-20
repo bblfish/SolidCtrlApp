@@ -86,7 +86,11 @@ object DirTree:
          loop(thizDt, path, Seq())
       end unzipAlong
 
-      /** find the closest node matching `select` going backwards from where we got */
+      /** find the closest node matching `select` going backwards from the closest node we have
+        * leading to path. So if we want <people/henry/blog/2023/04/01/world-at-peace> 
+        * but we have <people/henry/blog/2023> and </people/henry/blog/> but only that content
+        * at the latter resource matches, then we will get that.
+        */
       def findClosest(path: Path)(select: X => Boolean): Option[X] = unzipAlong(path) match
        case (Right(dt), zpath) => dt.head +: zpath.map(_.from.head) find select
        case (Left(_), zpath) => zpath.map(_.from.head) find select

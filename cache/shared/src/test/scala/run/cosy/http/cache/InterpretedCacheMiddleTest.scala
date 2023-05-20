@@ -14,6 +14,7 @@ import cats.effect.kernel.Ref
 import cats.data.Kleisli
 import io.chrisdavenport.mules.http4s.CachedResponse
 import io.chrisdavenport.mules.http4s.CacheItem
+import org.typelevel.ci.CIStringSyntax
 
 object Test:
 // Return true if match succeeds; otherwise false
@@ -59,19 +60,20 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
 
    val worldPeace: Uri = Uri
      .unsafeFromString("https://bblfish.net/people/henry/blog/2023/04/01/world-at-peace")
+   val bblBlogVirgin: Uri = Uri.unsafeFromString("https://bblfish.net/people/henry/blog/2023/05/18/birth") 
    val bbl: Uri = Uri.unsafeFromString("https://bblfish.net/")
    val counterUri = Uri.unsafeFromString("https://bblfish.net/counter")
 
    /** we need dates so that caching can work but it is tricky to compare them */
-   def removeDate(headers: Headers): Headers =
-      import org.typelevel.ci.CIStringSyntax
-      headers.transform(l => l.filterNot(_.name == ci"Date"))
+   def removeDate(headers: Headers): Headers = headers
+     .transform(l => l.filterNot(_.name == ci"Date"))
 
    test("test String Cache") {
      for
         ref <- Ref.of[IO, WebCache[CacheItem[String]]](Map.empty)
+        cache = TreeDirCache[IO, CacheItem[String]](ref)
         stringCacheMiddleWare = InterpretedCacheMiddleware.app[IO, String](
-          TreeDirCache[IO, CacheItem[String]](ref),
+          cache,
           (response: Response[IO]) =>
             response.bodyText.compile.toVector.map { vec =>
               CachedResponse(
@@ -90,6 +92,21 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
         rescounter2 <- cachedClient.run(Request[IO](Method.GET, counterUri))
         respRoot2 <- cachedClient.run(Request[IO](Method.GET, bbl))
         rescounter3 <- cachedClient.run(Request[IO](Method.GET, counterUri))
+        cachedWorldPeace <- cache.lookup(worldPeace)
+        closestDir1 <- cache.findClosest(bblBlogVirgin)(_.isDefined)
+        wpLink = cachedWorldPeace.flatMap { ci =>
+           val x: List[Uri] = for
+              links <- ci.response.headers.get[Link].toList
+              link <- links.values.toList
+              if link.rel.contains(Web.defaultAccessContainer)
+           yield worldPeace.resolve(link.uri)
+           x.headOption //there should be only one!
+        }
+        blogAcrDirUrl <- IO.fromOption(wpLink)(
+          new Exception(s"no default container Link header in $cachedWorldPeace")
+        )
+        cacheBlogDir <- cachedClient.run(Request[IO](Method.GET, blogAcrDirUrl))
+        closestDir2 <- cache.findClosest(bblBlogVirgin)(_.isDefined)
      yield
         assertEquals(respWP1.status, Status.Ok)
         assertEquals(
@@ -110,6 +127,7 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
           Some(Web.rootTtl)
         )
         assertEquals(rescounter1.status, Status.Ok)
+        //this tells us that we hit the cache once
         rescounter1.body.map { body =>
            val c1 = parseMap(body)
            assertEquals(c1(worldPeace.path.toString), 1)
@@ -123,6 +141,8 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
           Web.headers("world-at-peace", Some("/people/henry/blog/"), MediaType.text.plain)
         )
         assertEquals(rescounter2.status, Status.Ok)
+
+        //this tells us that we got all the info directly from the cache
         rescounter2.body.map { body =>
            val c1 = parseMap(body)
            assertEquals(c1(worldPeace.path.toString), 1)
@@ -142,6 +162,17 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
            assertEquals(c1(counterUri.path.toString), 1)
         }.getOrElse(fail("no body for 3rd req to " + counterUri))
 
+        // test direct access to cache
+        assertEquals(cachedWorldPeace.get.response.status, Status.Ok)
+        assertEquals(cachedWorldPeace.get.response.body, Some(Web.bblWorldAtPeace))
+
+        assertEquals(cacheBlogDir.status, Status.Ok)
+        assertEquals(
+          removeDate(cacheBlogDir.headers),
+          Web.headers("")
+        )
+        assertEquals(closestDir1.map(_.response.body), Some(Some(Web.rootTtl)))
+        assertEquals(closestDir2.map(_.response.body), Some(Some(Web.bblBlogRootContainer)))
    }
 
 end InterpretedCacheMiddleTest
