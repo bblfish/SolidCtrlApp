@@ -79,7 +79,7 @@ object Web:
      |   wac:agentClass foaf:Agent;
      |   wac:accessTo <.> ;
      |   wac:default <.> .
-     |""".stripMargin
+     | """.stripMargin
 
    val rootTtl = """
      |@prefix ldp: <http://www.w3.org/ns/ldp#> .
@@ -120,7 +120,6 @@ object Web:
    ): HttpRoutes[F] =
       val counter = AtomicReference(Map.empty[Uri.Path, Int])
       val inc = Kleisli[OptionT[F, *], Request[F], Request[F]] { req =>
-         ntln("server received request " + req.method + req.uri.path)
          OptionT.liftF(AS.delay {
            counter.updateAndGet { m =>
               val count = m.getOrElse(req.uri.path, 0)
