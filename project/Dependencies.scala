@@ -58,8 +58,9 @@ object Dependencies {
 
   // not published yet
   object banana {
+    lazy val bananaIOSync = Def.setting("net.bblfish.rdf" %%% "rdfIO-sync" % Ver.banana)
     lazy val bananaRdf = Def.setting("net.bblfish.rdf" %%% "banana-rdf" % Ver.banana)
-    lazy val bananaIO = Def.setting("net.bblfish.rdf" %%% "banana-jena-io-sync" % Ver.banana)
+    lazy val bananaJenaIO = Def.setting("net.bblfish.rdf" %%% "banana-jena-io-sync" % Ver.banana)
     lazy val bananaJena = Def.setting("net.bblfish.rdf" %%% "banana-jena-io-sync" % Ver.banana)
   }
   val scalajsDom = Def.setting("org.scala-js" %%% "scalajs-dom" % "2.0.0")

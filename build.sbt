@@ -156,7 +156,7 @@ lazy val ioExt4s = crossProject(JVMPlatform).crossType(CrossType.Full).in(file("
     resolvers += sonatypeSNAPSHOT,
     libraryDependencies ++= Seq(
       http4s.client.value,
-      banana.bananaIO.value
+      banana.bananaJenaIO.value
     ),
     libraryDependencies ++= Seq(
       munit.value % Test,
@@ -200,7 +200,7 @@ lazy val wallet = crossProject(JVMPlatform) // , JSPlatform)
     // do I also need to run `npm install n3` ?
     // Compile / npmDependencies += NPM.n3,
     // Test / npmDependencies += NPM.n3
-  )
+  ).dependsOn(cache)
 
 lazy val scripts = crossProject(JVMPlatform).in(file("scripts"))
 //  .settings(
@@ -215,6 +215,7 @@ lazy val scripts = crossProject(JVMPlatform).in(file("scripts"))
       crypto.bobcats.value classifier ("tests"), // bobcats test examples,
       crypto.bobcats.value classifier ("tests-sources"), // bobcats test examples soources,
       other.scalaUri.value,
+      
       http4s.ember_client.value,
       crypto.nimbusJWT_JDK.value,
       crypto.bouncyJCA_JDK.value

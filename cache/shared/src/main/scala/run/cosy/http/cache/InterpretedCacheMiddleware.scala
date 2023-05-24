@@ -33,18 +33,21 @@ object InterpretedCacheMiddleware:
    def client[F[_]: Concurrent: Clock, T](
        cache: TreeDirCache[F, CacheItem[T]],
        interpret: Response[F] => F[CachedResponse[T]],
+       enhance: Request[F] => Request[F] = identity,
        cacheType: CacheType = CacheType.Private
    ): Client[F] => InterpClient[F, Resource[F, *], T] = (client: Client[F]) =>
      Kleisli(
-       Caching[F, T](cache, interpret, cacheType).request(Kleisli(client.run), Resource.liftK)
+       Caching[F, T](cache, interpret, cacheType)
+         .request(Kleisli(req => client.run(enhance(req))), Resource.liftK)
      )
 
    def app[F[_]: Concurrent: Clock, T](
        cache: TreeDirCache[F, CacheItem[T]],
        interpret: Response[F] => F[CachedResponse[T]],
+       enhance: Request[F] => Request[F] = identity,
        cacheType: CacheType = CacheType.Private
    ): HttpApp[F] => InterpClient[F, F, T] = (app: HttpApp[F]) =>
      Kleisli(
        Caching[F, T](cache, interpret, cacheType)
-         .request(Kleisli(app.run), cats.arrow.FunctionK.id[F])
+         .request(Kleisli(req => app.run(enhance(req))), cats.arrow.FunctionK.id[F])
      )

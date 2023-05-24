@@ -34,7 +34,7 @@ import cats.Monad
 import cats.effect.kernel.Clock
 // import io.chrisdavenport.mules.http4s.CachedResponse.body
 
-object Web:
+object WebTest:
 
    extension (uri: Uri)
      /** Uri("/") + ".acl" == Uri("/.acl") and Uri("foo")+".acl" == Uri("foo.acl") */

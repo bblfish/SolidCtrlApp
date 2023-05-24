@@ -38,6 +38,12 @@ final case class CachedResponse[T](
      headers,
      this.body
    )
+   def map[S](f: T => S): CachedResponse[S] = new CachedResponse[S](
+     this.status,
+     this.httpVersion,
+     this.headers,
+     this.body.map(f)
+   )
 
 object CachedResponse:
 

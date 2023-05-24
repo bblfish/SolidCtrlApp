@@ -34,6 +34,15 @@ import scodec.bits.ByteVector
 import org.http4s.client.*
 import org.http4s.ember.client.*
 import run.cosy.http.headers.SigIn.KeyId
+import org.w3.banana.RDF
+import org.w3.banana.Ops
+import run.cosy.http.cache.TreeDirCache.WebCache
+import io.chrisdavenport.mules.http4s.CacheItem
+import run.cosy.http.cache.TreeDirCache
+import run.cosy.http.cache.InterpretedCacheMiddleware
+import org.http4s.Response
+import io.chrisdavenport.mules.http4s.CachedResponse
+import fs2.io.net.Network
 
 object AnHttpSigClient:
    implicit val runtime: IORuntime = cats.effect.unsafe.IORuntime.global
@@ -76,35 +85,63 @@ object AnHttpSigClient:
    lazy val signerF: IO[ByteVector => IO[ByteVector]] = Signer[IO]
      .build(pkcs8K, bobcats.AsymmetricKeyAlg.`rsa-pss-sha512`)
 
-   import org.w3.banana.jena.io.JenaRDFReader.given
+   lazy val keyIdData: KeyData[cats.effect.IO] =
+     new KeyData[IO](KeyId(Rfc8941.SfString(keyIdStr)), signerF)
    import org.w3.banana.jena.io.JenaRDFWriter.given
+   import org.w3.banana.jena.io.JenaRDFReader.given
 
-   lazy val keyIdData = new KeyData[IO](KeyId(Rfc8941.SfString(keyIdStr)), signerF)
-
-   given dec: RDFDecoders[IO, R] = new RDFDecoders()
    import org.http4s.syntax.all.uri
-   given wt: WalletTools[R] = new WalletTools[R]
 
-   def ioStr(uri: H4Uri): IO[String] = emberAuthClient.flatMap(_.expect[String](uri))
+   given rdfDecoders: RDFDecoders[IO, R] = RDFDecoders[IO, R]
+   def ioStr(uri: H4Uri, client: Client[IO]): IO[String] = ClientTools
+     .authClient[IO, R](keyIdData, client).flatMap(_.expect[String](uri))
 
-   /** Ember Client able to authenticate with above keyId */
-   def emberAuthClient: IO[Client[IO]] = EmberClientBuilder.default[IO].build
-     .use { (client: Client[IO]) =>
-        import org.http4s.client.middleware.Logger
-        val loggedClient: Client[IO] =
-          Logger[IO](true, true, logAction = Some(str => IO(System.out.println(str))))(client)
+   // run "use" on this to get a client
+   def emberClient: Resource[IO, Client[IO]] = EmberClientBuilder.default[IO].build
 
-        val bw = new BasicWallet[IO, R](
-          Map(),
-          Seq(keyIdData)
-        )(loggedClient)
+   def emberAuthClient: IO[Client[IO]] = emberClient.use { client =>
+     ClientTools.authClient(keyIdData, client)
+   }
 
-        IO(AuthNClient[IO].apply(bw)(loggedClient))
-     }
-
-   def fetch(uriStr: String = "http://localhost:8080/protected/README"): String =
-     // ioStr(uri"http://localhost:8080/").unsafeRunSync()
-     // ioStr(uri"http://localhost:8080/protected/").unsafeRunSync()
-     ioStr(H4Uri.unsafeFromString(uriStr)).unsafeRunSync()
+   @main
+   def fetch(uriStr: String = "http://localhost:8080/protected/README"):  Unit =
+      // ioStr(uri"http://localhost:8080/").unsafeRunSync()
+      // ioStr(uri"http://localhost:8080/protected/").unsafeRunSync()
+      val result = emberAuthClient.flatMap { client =>
+        ioStr(H4Uri.unsafeFromString(uriStr), client)
+      }.unsafeRunSync()
+      println(result)
 
 end AnHttpSigClient
+
+object ClientTools:
+   import cats.effect.kernel.Clock
+   import cats.effect.Concurrent
+   import cats.syntax.all.*
+
+   /** enhance client so that it logs and can authenticate with given keyId, and save acls to graph
+     * cache it creates. (a bit adhoc of a function, but it is a script)
+     */
+   def authClient[F[_]: Clock: Async, R <: RDF](
+       keyIdData: KeyData[F],
+       client: Client[F]
+   )(using
+       ops: Ops[R],
+       rdfDecoders: RDFDecoders[F, R]
+   ): F[Client[F]] =
+      import org.http4s.client.middleware.Logger
+      val loggedClient: Client[F] = Logger[F](
+        true,
+        true,
+        logAction = Some(str => Concurrent[F].pure(System.out.println(str)))
+      )(client)
+      val walletTools: WalletTools[R] = new WalletTools[R]
+      for ref <- Ref.of[F, WebCache[CacheItem[RDF.rGraph[R]]]](Map.empty)
+      yield
+         val cache = TreeDirCache[F, CacheItem[RDF.rGraph[R]]](ref)
+         val interClientMiddleware = walletTools.cachedRelGraphMiddleware(cache)
+         val bw = new BasicWallet[F, R](
+           Map(),
+           Seq(keyIdData)
+         )(interClientMiddleware(loggedClient))
+         AuthNClient[F](bw)(loggedClient)

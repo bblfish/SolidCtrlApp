@@ -32,13 +32,13 @@ end InterpretedCacheMiddleTest
 class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
    import InterpretedCacheMiddleTest.*
    test("test web") {
-     Web.httpRoutes[IO].orNotFound.run(Request[IO](uri = Uri(path = Root))).map { response =>
+     WebTest.httpRoutes[IO].orNotFound.run(Request[IO](uri = Uri(path = Root))).map { response =>
         assertEquals(response.status, Status.Ok)
         assertEquals(
           removeDate(response.headers),
-          Web.headers("/")
+          WebTest.headers("/")
         )
-     } >> Web.httpRoutes[IO].orNotFound.run(
+     } >> WebTest.httpRoutes[IO].orNotFound.run(
        Request[IO](uri =
          Uri(path = Uri.Path.unsafeFromString("/people/henry/blog/2023/04/01/world-at-peace"))
        )
@@ -46,7 +46,7 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
         assertEquals(response.status, Status.Ok)
         assertEquals(
           removeDate(response.headers),
-          Web.headers("world-at-peace", Some("/people/henry/blog/"), MediaType.text.plain)
+          WebTest.headers("world-at-peace", Some("/people/henry/blog/"), MediaType.text.plain)
         )
         assertEquals(
           bytesToString(response.body.compile.toVector.unsafeRunSync()),
@@ -72,9 +72,10 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
                 response.headers,
                 Some(vec.mkString)
               )
-            }
+            },
+            enhance = _.putHeaders(Accept(MediaType.text.plain))
         )
-        cc = stringCacheMiddleWare(Web.httpRoutes[IO].orNotFound)
+        cc = stringCacheMiddleWare(WebTest.httpRoutes[IO].orNotFound)
         respWP1 <- cc.run(Request[IO](GET, worldPeace))
         respRoot <- cc.run(Request[IO](GET, bbl))
         rescounter1 <- cc.run(Request[IO](GET, counterUri))
@@ -89,7 +90,7 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
              for
                 links <- ci.response.headers.get[Link].toList
                 link <- links.values.toList
-                if link.rel.contains(Web.defaultAccessContainer)
+                if link.rel.contains(WebTest.defaultAccessContainer)
              yield worldPeace.resolve(link.uri)
            x.headOption // there should be only one!
         }
@@ -102,7 +103,7 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
         assertEquals(respWP1.status, Status.Ok)
         assertEquals(
           removeDate(respWP1.headers),
-          Web.headers("world-at-peace", Some("/people/henry/blog/"), MediaType.text.plain)
+          WebTest.headers("world-at-peace", Some("/people/henry/blog/"), MediaType.text.plain)
         )
         assertEquals(
           respWP1.body,
@@ -111,11 +112,11 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
         assertEquals(respRoot.status, Status.Ok)
         assertEquals(
           removeDate(respRoot.headers),
-          Web.headers("/")
+          WebTest.headers("/")
         )
         assertEquals(
           respRoot.body,
-          Some(Web.rootTtl)
+          Some(WebTest.rootTtl)
         )
         assertEquals(rescounter1.status, Status.Ok)
         // this tells us that we hit the cache once
@@ -129,7 +130,7 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
         assertEquals(respWP2.status, Status.Ok)
         assertEquals(
           removeDate(respWP1.headers),
-          Web.headers("world-at-peace", Some("/people/henry/blog/"), MediaType.text.plain)
+          WebTest.headers("world-at-peace", Some("/people/henry/blog/"), MediaType.text.plain)
         )
         assertEquals(rescounter2.status, Status.Ok)
 
@@ -144,7 +145,7 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
         assertEquals(respRoot2.status, Status.Ok)
         assertEquals(
           respRoot2.body,
-          Some(Web.rootTtl)
+          Some(WebTest.rootTtl)
         )
         rescounter3.body.map { body =>
            val c1 = parseMap(body)
@@ -155,17 +156,17 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
 
         // test direct access to cache
         assertEquals(cachedWorldPeace.get.response.status, Status.Ok)
-        assertEquals(cachedWorldPeace.get.response.body, Some(Web.bblWorldAtPeace))
+        assertEquals(cachedWorldPeace.get.response.body, Some(WebTest.bblWorldAtPeace))
 
         assertEquals(cacheBlogDir.status, Status.Ok)
         assertEquals(
           removeDate(cacheBlogDir.headers),
-          Web.headers("")
+          WebTest.headers("")
         )
         // the closest dir is the root because we have not cached the blog dir
-        assertEquals(closestDir1.map(_.response.body), Some(Some(Web.rootTtl)))
+        assertEquals(closestDir1.map(_.response.body), Some(Some(WebTest.rootTtl)))
         // now the blog dir is cached
-        assertEquals(closestDir2.map(_.response.body), Some(Some(Web.bblBlogRootContainer)))
+        assertEquals(closestDir2.map(_.response.body), Some(Some(WebTest.bblBlogRootContainer)))
    }
 
 end InterpretedCacheMiddleTest

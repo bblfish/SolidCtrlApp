@@ -39,6 +39,8 @@ import scala.util.{Failure, Left, Right, Success, Try}
 import org.http4s.client.Client
 import org.http4s.headers.Accept
 import org.w3.banana.RDF.rGraph
+import org.http4s.Uri
+import org.w3.banana.io.RDFReader
 
 class RDFDecoders[F[_], Rdf <: RDF](using
     val ops: Ops[Rdf],
@@ -48,7 +50,7 @@ class RDFDecoders[F[_], Rdf <: RDF](using
     jsonLDReader: RelRDFReader[Rdf, Try, JsonLd]
 ):
 
-   private def decoderForRdfReader[T](mt: MediaRange, mts: MediaRange*)(
+   private def decoderForRelRdfReader[T](mt: MediaRange, mts: MediaRange*)(
        reader: RelRDFReader[Rdf, Try, T],
        errmsg: String
    ): EntityDecoder[F, rGraph[Rdf]] =
@@ -63,6 +65,7 @@ class RDFDecoders[F[_], Rdf <: RDF](using
            }
          )
       }
+           
    import MediaType.{application, text}
    import MediaType.application.`ld+json`
 
@@ -76,18 +79,18 @@ class RDFDecoders[F[_], Rdf <: RDF](using
      List("nt")
    )
 
-   val turtleDecoder: EntityDecoder[F, rGraph[Rdf]] = decoderForRdfReader(text.turtle, ntriples)(
+   val turtleDecoder: EntityDecoder[F, rGraph[Rdf]] = decoderForRelRdfReader(text.turtle, ntriples)(
      turtleReader,
      "Rdf Turtle Reader failed"
    )
-   val rdfxmlDecoder: EntityDecoder[F, rGraph[Rdf]] = decoderForRdfReader(application.`rdf+xml`)(
+   val rdfxmlDecoder: EntityDecoder[F, rGraph[Rdf]] = decoderForRelRdfReader(application.`rdf+xml`)(
      rdfXmlReader,
      "Rdf Rdf/XML Reader failed"
    )
 //  val ntriplesDecoder = decoderForRdfReader(application.`n-triples`)(
 //    ntriplesReader, "NTriples  Reader failed"
 //  )
-   val jsonldDecoder: EntityDecoder[F, rGraph[Rdf]] = decoderForRdfReader(application.`ld+json`)(
+   val jsonldDecoder: EntityDecoder[F, rGraph[Rdf]] = decoderForRelRdfReader(application.`ld+json`)(
      jsonLDReader,
      "Json-LD Reader failed"
    )

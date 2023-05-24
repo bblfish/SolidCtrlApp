@@ -43,7 +43,7 @@ object MiniCF:
    given rdfDecoders: RDFDecoders[IO, JR] = new RDFDecoders[IO, JR]
 
    @main
-   def crawlContainer(stream: String = "http://localhost:8080/ldes/miniCityFlows/stream#"): Unit =
+   def crawlContainer(stream: String = "http://localhost:8080/ldes/openCF/stream#"): Unit =
       val streamUri: RDF.URI[JR] = ops.URI(stream)
 
       val ioStr: IO[fs2.Stream[IO, Chunk[UriNGraph[JR]]]] = AnHttpSigClient.emberAuthClient
