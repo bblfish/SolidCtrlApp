@@ -60,7 +60,7 @@ object WebTest:
         ),
         Allow(GET, HEAD)
       )
-   
+
    val defaultAccessContainer = "defaultAccessContainer"
    val rootDir = Uri(path = Root)
    // relative URLs
@@ -116,11 +116,7 @@ object WebTest:
      |   wac:default <.> .
      |""".stripMargin
 
-   val bblBlogRootContainer = """
-   |@prefix ldp: <http://www.w3.org/ns/ldp#> .
-   |<> a ldp:BasicContainer;
-   | . ldp:contains <2023/> .
-   |""".stripMargin
+   val bblBlogRootContainer = "".stripMargin
 
    val bblWorldAtPeace = "Hello World!"
    val bblBlogVirgin = "Play in three acts"
@@ -130,12 +126,12 @@ object WebTest:
    ): HttpRoutes[F] =
       val counter = AtomicReference(Map.empty[Uri.Path, Int])
       val inc = Kleisli[OptionT[F, *], Request[F], Request[F]] { req =>
-         OptionT.liftF(AS.delay {
-           counter.updateAndGet { m =>
-              val count = m.getOrElse(req.uri.path, 0)
-              m.updated(req.uri.path, count + 1)
-           }
-         }) >> OptionT.pure(req)
+        OptionT.liftF(AS.delay {
+          counter.updateAndGet { m =>
+             val count = m.getOrElse(req.uri.path, 0)
+             m.updated(req.uri.path, count + 1)
+          }
+        }) >> OptionT.pure(req)
       }
       val routes: Kleisli[OptionT[F, *], Request[F], Response[F]] = HttpRoutes.of[F] {
         case GET -> Root => AS.pure(
@@ -159,19 +155,21 @@ object WebTest:
               headers = headers("card", Some("/"))
             )
           )
-        case GET -> Root / "people" / "henry" / "blog" / "2023" / "05" / "18" / "birth" =>
-          OK[F](
+        case GET -> Root / "people" / "henry" / "blog" / "2023" / "05" / "18" / "birth" => OK[F](
             bblBlogVirgin,
             headers("birth", Some("/people/henry/blog/"), MediaType.text.plain)
           )
         case GET -> Root / "people" / "henry" / "blog" / "" => // <- is this "ends with slash"?
+          Async[F].pure(
+            Response[F](
+              status = Status.NotFound,
+              entity = Entity.empty,
+              headers = Headers(Link(LinkValue(Uri(path = Uri.Path(Vector(Uri.Path.Segment(".acr")))), rel = Some("acl"))))
+            )
+          )
+        case GET -> Root / "people" / "henry" / "blog" / "2023" / "04" / "01" / "world-at-peace" =>
           OK[F](
-            bblBlogRootContainer,
-            headers("")
-          ) 
-         case GET -> Root / "people" / "henry" / "blog" / "2023" / "04" / "01" / "world-at-peace" =>
-          OK[F](
-            bblWorldAtPeace, 
+            bblWorldAtPeace,
             headers("world-at-peace", Some("/people/henry/blog/"), MediaType.text.plain)
           )
         case GET -> Root / "people" / "henry" / "blog" / ".acr" => OK[F](

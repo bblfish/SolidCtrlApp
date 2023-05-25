@@ -15,6 +15,8 @@ import cats.data.Kleisli
 import io.chrisdavenport.mules.http4s.CachedResponse
 import io.chrisdavenport.mules.http4s.CacheItem
 import org.typelevel.ci.CIStringSyntax
+import cats.data.NonEmptyList
+import io.chrisdavenport.mules.http4s.internal.Caching
 
 object InterpretedCacheMiddleTest:
    def bytesToString(bytes: Vector[Byte]): String = bytes.map(_.toChar).mkString
@@ -54,6 +56,7 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
         )
      }
    }
+
    /** we need dates so that caching can work but it is tricky to compare them */
    def removeDate(headers: Headers): Headers = headers
      .transform(l => l.filterNot(_.name == ci"Date"))
@@ -73,7 +76,7 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
                 Some(vec.mkString)
               )
             },
-            enhance = _.putHeaders(Accept(MediaType.text.plain))
+          enhance = _.putHeaders(Accept(MediaType.text.plain))
         )
         cc = stringCacheMiddleWare(WebTest.httpRoutes[IO].orNotFound)
         respWP1 <- cc.run(Request[IO](GET, worldPeace))
@@ -85,7 +88,7 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
         rescounter3 <- cc.run(Request[IO](GET, counterUri))
         cachedWorldPeace <- cache.lookup(worldPeace)
         closestDir1 <- cache.findClosest(bblBlogVirgin)(_.isDefined)
-        wpLink = cachedWorldPeace.flatMap { ci =>
+        wpAcrLink = cachedWorldPeace.flatMap { ci =>
            val x: List[Uri] =
              for
                 links <- ci.response.headers.get[Link].toList
@@ -94,11 +97,17 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
              yield worldPeace.resolve(link.uri)
            x.headOption // there should be only one!
         }
-        blogAcrDirUrl <- IO.fromOption(wpLink)(
+        blogDirUrl <- IO.fromOption(wpAcrLink)(
           new Exception(s"no default container Link header in $cachedWorldPeace")
         )
-        cacheBlogDir <- cc.run(Request[IO](Method.GET, blogAcrDirUrl))
+        cacheBlogDir <- cc.run(Request[IO](Method.GET, blogDirUrl))
+        blogDirAcr = cacheBlogDir.headers.get[Link].toList.flatMap(_.values.toList)
+          .collectFirst { case LinkValue(acl, Some("acl"), _, _, _) => acl }
+          .map(u => blogDirUrl.resolve(u))
+        x = assert(blogDirAcr.nonEmpty, s"no acl link header in $cacheBlogDir")
         closestDir2 <- cache.findClosest(bblBlogVirgin)(_.isDefined)
+        cachedBlogDirAcl <- cc.run(Request[IO](Method.GET, blogDirAcr.get))
+        cachedBlogDir2 <- cache.lookup(blogDirUrl)
      yield
         assertEquals(respWP1.status, Status.Ok)
         assertEquals(
@@ -158,15 +167,35 @@ class InterpretedCacheMiddleTest extends munit.CatsEffectSuite:
         assertEquals(cachedWorldPeace.get.response.status, Status.Ok)
         assertEquals(cachedWorldPeace.get.response.body, Some(WebTest.bblWorldAtPeace))
 
-        assertEquals(cacheBlogDir.status, Status.Ok)
+        assertEquals(cacheBlogDir.status, Status.NotFound)
         assertEquals(
           removeDate(cacheBlogDir.headers),
-          WebTest.headers("")
+          Headers(
+            Link(
+              LinkValue(Uri(path = Uri.Path(Vector(Uri.Path.Segment(".acr")))), rel = Some("acl"))
+            )
+          )
         )
         // the closest dir is the root because we have not cached the blog dir
         assertEquals(closestDir1.map(_.response.body), Some(Some(WebTest.rootTtl)))
         // now the blog dir is cached
         assertEquals(closestDir2.map(_.response.body), Some(Some(WebTest.bblBlogRootContainer)))
+        // we got the acl for the blog dir after following the link header of a 401 resource
+        assertEquals(cachedBlogDirAcl.status, Status.Ok)
+        assertEquals(cachedBlogDirAcl.body, Some(WebTest.bblBlogAcr))
+
+        // the cache should have the same content as the response, even when returning a 404
+        // (ie, we did not have to make a new request to the web)
+        assertEquals(cachedBlogDir2.get.response.status, Status.NotFound)
+        assertEquals(
+          removeDate(cachedBlogDir2.get.response.headers),
+          Headers(
+            Link(
+              LinkValue(Uri(path = Uri.Path(Vector(Uri.Path.Segment(".acr")))), rel = Some("acl"))
+            )
+          )
+        )
+
    }
 
 end InterpretedCacheMiddleTest

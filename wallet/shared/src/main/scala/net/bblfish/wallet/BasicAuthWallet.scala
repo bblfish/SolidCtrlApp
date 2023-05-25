@@ -63,6 +63,8 @@ import org.w3.banana.prefix.LDP
 import run.cosy.web.util.UrlUtil.*
 import io.lemonlabs.uri.AbsoluteUrl
 import io.lemonlabs.uri.config.UriConfig
+import BasicWallet.*
+import org.http4s.Method
 
 class BasicId(val username: String, val password: String)
 
@@ -99,7 +101,38 @@ trait ChallengeResponse:
 object BasicWallet:
    val defaultAC = "defaultAccessContainer"
    val defaultACOpt = Some(defaultAC)
-   val aclRelTypes = List("acl", defaultAC)
+   val ldpContains = "http://www.w3.org/ns/ldp#contains"
+
+   /** extract the links from the headers as pairs of Eithers for rev or rel relations and the url
+     * value, and absolutize the Url. Todo: we use ll.Uri here, because they have a clear type for
+     * absolute urls, but this is a we really need a url abstraction that does this right
+     */
+   def extractLinks(
+       requestUrl: AbsoluteUrl,
+       reponseHeaders: org.http4s.Headers
+   ): Seq[(Either[String, String], ll.AbsoluteUrl)] = reponseHeaders.get[Link] match
+    case None => Seq()
+    case Some(link) => link.values.toList.toSeq.collect {
+        case LinkValue(uri, rel, rev, _, _) if rel.isDefined || rev.isDefined =>
+          Seq(
+            rel.toSeq.flatMap(_.split(" ").toSeq.map(_.asRight[String] -> uri)),
+            rev.toSeq.flatMap(_.split(" ").toSeq.map(_.asLeft[String] -> uri))
+          ).flatten
+      }.flatten.map((e, u) => (e, u.toLL.resolve(requestUrl, true).toAbsoluteUrl))
+
+   /** valuees for sorting priority of link relations
+     *
+     * + todo: if we knoew that the resource was a solid:Resource or a solid:Cointainer we could
+     * also proceed looking at the Url structure to see if we find the acl + todo: if we follow
+     * links, we need to make sure we don't follow the same link twice or go in circles
+     */
+   def relPriority(rel: Either[String, String]): Int = rel match
+    case Left(`ldpContains`) => 3
+    case Right("acl") => 2
+    case Right(`defaultAC`) => 1
+    case _ => 4
+
+end BasicWallet
 
 /** place code that only needs RDF and ops here. */
 class WalletTools[Rdf <: RDF](using ops: Ops[Rdf]):
@@ -107,7 +140,6 @@ class WalletTools[Rdf <: RDF](using ops: Ops[Rdf]):
    import ops.{*, given}
 
    val wac: WebACL[Rdf] = WebACL[Rdf]
-   val ldpContains = LDP[Rdf]("contains").toString
    val foaf = prefix.FOAF[Rdf]
    val sec: SecurityPrefix[Rdf] = SecurityPrefix[Rdf]
 
@@ -128,15 +160,24 @@ class WalletTools[Rdf <: RDF](using ops: Ops[Rdf]):
      .client[F, RDF.rGraph[Rdf]](
        cache,
        (response: h4s.Response[F]) =>
-          import rdfDecoders.allrdf
-          response.as[RDF.rGraph[Rdf]].map { rG =>
-            CachedResponse[RDF.rGraph[Rdf]](
+          if !response.status.isSuccess
+          then
+            Concurrent[F].pure(CachedResponse[RDF.rGraph[Rdf]](
               response.status,
               response.httpVersion,
               response.headers,
-              Some(rG)
-            )
-          }
+              None
+            ))
+          else  
+            import rdfDecoders.allrdf
+            response.as[RDF.rGraph[Rdf]].map { rG =>
+              CachedResponse[RDF.rGraph[Rdf]](
+                response.status,
+                response.httpVersion,
+                response.headers,
+                Some(rG)
+              )
+            }
        ,
        enhance = _.withHeaders(rdfDecoders.allRdfAccept)
      )
@@ -251,55 +292,47 @@ class BasicWallet[F[_], Rdf <: RDF](
    end basicChallenge
 
    // todo: do we need the return to be a Resource? Would F[Graph] be enough?
+   /**
+    * Fetches the ACL for the given uri, and if it is not found, tries to find the ACL for the
+    * linkedToContainer (not implemented yet). 
+    */ 
+   def fetchAclGr(
+       uri: AbsoluteUrl,
+       fallbackContainer: Option[ll.AbsoluteUrl] = None
+   ): Resource[F, RDF.Graph[Rdf]] = iClient.run(h4s.Request(uri = uri.toh4.withoutFragment))
+     .flatMap { crG =>
+       Resource.liftK(
+         if crG.status.isSuccess && crG.body.isDefined
+         then fc.pure(crG.body.get.resolveAgainst(uri))
+         else fc.raiseError(Exception(s"Could not find ACL at $uri"))
+       )
+     }
+
    def findAclForContainer(containerUrl: AbsoluteUrl): Resource[F, RDF.Graph[Rdf]] =
      // todo: should be a HEAD request!!!
-     iClient.run(h4s.Request(uri = containerUrl.toh4.withoutFragment)).flatMap { crG =>
-       if crG.status.isSuccess
-       then findAclFor(containerUrl, crG.headers)
-       else Resource.raiseError(Exception(s"Unsuccessful request on $containerUrl"))(fc)
+     iClient.run(h4s.Request(Method.HEAD, uri = containerUrl.toh4.withoutFragment)).flatMap { crG =>
+       // todo: potentially check for the right status codes...
+       // which ones would be correct?  Clearly 201, 202, 404. But what others?
+       extractLinks(containerUrl, crG.headers).collectFirst { case (Right("acl"), uri) =>
+         fetchAclGr(uri)
+       }.getOrElse {
+         Resource.raiseError[F,RDF.Graph[Rdf],Throwable](Throwable(s"Could not find ACL for $containerUrl"))
+       }
+
      }
 
    def findAclFor(
        requestUrl: ll.AbsoluteUrl,
        responseHeaders: org.http4s.Headers
-   ): Resource[F, RDF.Graph[Rdf]] = responseHeaders.get[Link] match
-    case None => Resource
-        .raiseError(Exception("no Links in header. Can't find where the rules are. "))(fc)
-    case Some(link) =>
-      val rels: Seq[(Either[String, String], h4s.Uri)] = link.values.toList.toSeq.collect {
-        case LinkValue(uri, rel, rev, _, _) if rel.isDefined || rev.isDefined =>
-          Seq(
-            rel.toSeq.flatMap(_.split(" ").toSeq.map(_.asRight[String] -> uri)),
-            rev.toSeq.flatMap(_.split(" ").toSeq.map(_.asLeft[String] -> uri))
-          ).flatten
-      }.flatten
-      // sort rels by this sequence on the first element of the tuple: defaultAC, acl, ldpcontains
-      // todo: if we knoew that the resource was a solid:Resource or a solid:Cointainer we could also
-      //   proceed looking at the Url structure to see if we find the acl
-      // todo: if we follow links, we need to make sure we don't follow the same link twice or go in circles
-      val attempts: Seq[Resource[F, Either[Throwable, RDF.Graph[Rdf]]]] = rels.sortBy {
-        case (Left(`ldpContains`), _) => 3
-        case (Right("acl"), _) => 2
-        case (Right(`defaultAC`), _) => 1
-        case _ => 4
-      }.map((e, u) => (e, u.toLL.resolve(requestUrl, true).toAbsoluteUrl)).collect {
+   ): Resource[F, RDF.Graph[Rdf]] =
+      val links = extractLinks(requestUrl, responseHeaders).sortBy(x => relPriority(x._1))
+      val default = links.collectFirst {
         case (Right(`defaultAC`), uri) => findAclForContainer(uri)
-        case (Right("acl"), uri) => iClient.run(h4s.Request(uri = uri.toh4.withoutFragment))
-            .flatMap { crG =>
-              Resource.liftK(
-                if crG.status.isSuccess && crG.body.isDefined
-                then fc.pure(crG.body.get.resolveAgainst(uri))
-                else fc.raiseError(Exception(s"Could not find ACL at $uri"))
-              )
-            }
-        case (Left(`ldpContains`), uri) => findAclForContainer(uri)
-      }.map(_.attempt)
-      val w: F[Option[RDF.Graph[Rdf]]] = attempts.map(r => r.use(fc.pure))
-        .collectFirstSomeM(_.map(_.toOption))
-      Resource.eval(w).flatMap {
-        case None => Resource.raiseError(Exception("no usable Link in header."))(fc)
-        case Some(g) => Resource.pure(g)
+        case (Right("acl"), uri) => fetchAclGr(uri)
       }
+      default.getOrElse {
+        Resource.raiseError[F, RDF.Graph[Rdf],Throwable](Exception(s"No useable link to find ACL from $requestUrl"))
+      }  
    end findAclFor
 
    /** given the original request and a response, return the correctly signed original request (test
