@@ -32,18 +32,9 @@ final case class CachedResponse[T](
     headers: Headers,
     body: Option[T]
 ):
-   def withHeaders(headers: Headers): CachedResponse[T] = new CachedResponse[T](
-     this.status,
-     this.httpVersion,
-     headers,
-     this.body
-   )
-   def map[S](f: T => S): CachedResponse[S] = new CachedResponse[S](
-     this.status,
-     this.httpVersion,
-     this.headers,
-     this.body.map(f)
-   )
+   def withHeaders(headers: Headers): CachedResponse[T] = this.copy(headers = headers)
+      
+   def map[S](f: T => S): CachedResponse[S] = this.copy(body = body.map(f))
 
 object CachedResponse:
 

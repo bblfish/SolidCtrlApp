@@ -29,6 +29,7 @@ import cats.implicits.*
 import cats.data.*
 import org.typelevel.ci.*
 
+// see Caching RFC https://www.rfc-editor.org/rfc/rfc9111.html
 private[http4s] object CacheRules:
 
    def requestCanUseCached[F[_]](req: Request[F]): Boolean = methodIsCacheable(req.method) &&
@@ -55,6 +56,8 @@ private[http4s] object CacheRules:
      Status.MultipleChoices, // 300
      Status.MovedPermanently, // 301
      // Status.NotModified , // 304
+     Status.Unauthorized, // 401 -- cache should be overriden by successful auth request
+     //   Status.PaymentRequired, // 402 -- cache should be overriden by successful payment
      Status.NotFound, // 404
      Status.MethodNotAllowed, // 405
      Status.Gone, // 410
@@ -64,42 +67,61 @@ private[http4s] object CacheRules:
 
    def statusIsCacheable(s: Status): Boolean = cacheableStatus.contains(s)
 
-   def cacheAgeAcceptable[F[_]](req: Request[F], item: CacheItem[?], now: HttpDate): Boolean =
-     req.headers.get[`Cache-Control`] match
-      case None =>
-        // TODO: Investigate how this check works with cache-control
-        // If the data in the cache is expired and client does not explicitly
-        // accept stale data, then age is not ok.
-        item.expires.map(expiresAt => expiresAt >= now).getOrElse(true)
-      case Some(`Cache-Control`(values)) =>
-        val age = CacheItem.Age.of(item.created, now)
-        val lifetime = CacheItem.CacheLifetime.of(item.expires, now)
+   def cachedObjectOk[F[_], T](
+       req: Request[F],
+       item: CacheItem[T],
+       now: HttpDate
+   ): Option[CacheItem[T]] =
+     if cacheAgeAcceptable(req, item, now) && !requestOverrides401InCache(req, item) then
+        if req.method == item.requestMethod then Some(item)
+        else if req.method == Method.HEAD && item.requestMethod == Method.GET then
+           Some(item.copy(response = item.response.copy(body = None)))
+        else None
+     else None
 
-        val maxAgeMet: Boolean = values.toList
-          .collectFirst { case c @ CacheDirective.`max-age`(_) => c }
-          .map(maxAge => age.deltaSeconds.seconds <= maxAge.deltaSeconds).getOrElse(true)
+   private def requestOverrides401InCache[F[_]](req: Request[F], item: CacheItem[?]): Boolean =
+     req.method == Method.GET && item.response.status == Status.Unauthorized && req.headers
+       .get[Authorization].isDefined
 
-        val maxStaleMet: Boolean = {
-          for
-             maxStale <- values.toList.collectFirst { case c @ CacheDirective.`max-stale`(_) =>
-               c.deltaSeconds
-             }.flatten
-             stale <- lifetime
-          yield if stale.deltaSeconds >= 0 then true else stale.deltaSeconds.seconds <= maxStale
-        }.getOrElse(true)
+   private def cacheAgeAcceptable[F[_]](
+       req: Request[F],
+       item: CacheItem[?],
+       now: HttpDate
+   ): Boolean = req.headers.get[`Cache-Control`] match
+    case None =>
+      // TODO: Investigate how this check works with cache-control
+      // If the data in the cache is expired and client does not explicitly
+      // accept stale data, then age is not ok.
+      item.expires.map(expiresAt => expiresAt >= now).getOrElse(true)
+    case Some(`Cache-Control`(values)) =>
+      val age = CacheItem.Age.of(item.created, now)
+      val lifetime = CacheItem.CacheLifetime.of(item.expires, now)
 
-        val minFreshMet: Boolean = {
-          for
-             minFresh <- values.toList.collectFirst { case CacheDirective.`min-fresh`(seconds) =>
-               seconds
-             }
-             expiresAt <- item.expires
-          yield (expiresAt.epochSecond - now.epochSecond).seconds <= minFresh
-        }.getOrElse(true)
+      val maxAgeMet: Boolean = values.toList.collectFirst { case c @ CacheDirective.`max-age`(_) =>
+        c
+      }.map(maxAge => age.deltaSeconds.seconds <= maxAge.deltaSeconds).getOrElse(true)
 
-        // println(s"Age- $age, Lifetime- $lifetime, maxAgeMet: $maxAgeMet, maxStaleMet: $maxStaleMet, minFreshMet: $minFreshMet")
+      val maxStaleMet: Boolean = {
+        for
+           maxStale <- values.toList.collectFirst { case c @ CacheDirective.`max-stale`(_) =>
+             c.deltaSeconds
+           }.flatten
+           stale <- lifetime
+        yield if stale.deltaSeconds >= 0 then true else stale.deltaSeconds.seconds <= maxStale
+      }.getOrElse(true)
 
-        maxAgeMet && maxStaleMet && minFreshMet
+      val minFreshMet: Boolean = {
+        for
+           minFresh <- values.toList.collectFirst { case CacheDirective.`min-fresh`(seconds) =>
+             seconds
+           }
+           expiresAt <- item.expires
+        yield (expiresAt.epochSecond - now.epochSecond).seconds <= minFresh
+      }.getOrElse(true)
+
+      // println(s"Age- $age, Lifetime- $lifetime, maxAgeMet: $maxAgeMet, maxStaleMet: $maxStaleMet, minFreshMet: $minFreshMet")
+
+      maxAgeMet && maxStaleMet && minFreshMet
 
    def onlyIfCached[F[_]](req: Request[F]): Boolean = req.headers.get[`Cache-Control`].exists {
      _.values.exists {

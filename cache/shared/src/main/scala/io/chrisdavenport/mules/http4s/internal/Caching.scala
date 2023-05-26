@@ -49,10 +49,11 @@ case class Caching[F[_]: Concurrent: Clock, T](
               if CacheRules.onlyIfCached(req)
               then fk(CachedResponse.errorResponse[T](Status.GatewayTimeout).pure[F])
               else app.run(req).flatMap(resp => fk(withResponse(req, resp)))
-            case Some(item) =>
-              if CacheRules.cacheAgeAcceptable(req, item, now) then fk(item.response.pure[F])
-              else
-                 app.run(
+            case Some(item) => CacheRules.cachedObjectOk(req, item, now) match
+               case Some(item) => 
+                  fk(item.response.pure[F])
+               case None => 
+                  app.run(
                    req.putHeaders(
                      CacheRules.getIfMatch(item.response).map(modelledHeadersToRaw(_)).toSeq*
                    ).putHeaders(
@@ -83,7 +84,7 @@ case class Caching[F[_]: Concurrent: Clock, T](
             case _ => interpret(resp)
            now <- HttpDate.current[F]
            expires = CacheRules.FreshnessAndExpiration.getExpires(now, resp)
-           item <- CacheItem.create(cachedResp, expires.some)
+           item <- CacheItem.create(req.method, cachedResp, expires.some)
            _ <- cache.insert(req.uri, item)
         yield cachedResp
      else interpret(resp)

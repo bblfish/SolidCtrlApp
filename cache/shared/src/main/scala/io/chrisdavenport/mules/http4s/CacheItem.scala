@@ -22,11 +22,13 @@ import cats.*
 import cats.effect.*
 import cats.implicits.*
 import org.http4s.HttpDate
+import org.http4s.Method
 
 /** Cache Items are what we place in the cache, this is exposed so that caches can be constructed by
   * the user for this type
   */
 final case class CacheItem[T](
+    requestMethod: Method,
     created: HttpDate,
     expires: Option[HttpDate],
     response: CachedResponse[T]
@@ -35,9 +37,10 @@ final case class CacheItem[T](
 object CacheItem:
 
    def create[F[_]: Clock: MonadThrow, T](
+       requestMethod: Method,
        response: CachedResponse[T],
        expires: Option[HttpDate]
-   ): F[CacheItem[T]] = HttpDate.current[F].map(date => new CacheItem(date, expires, response))
+   ): F[CacheItem[T]] = HttpDate.current[F].map(date => new CacheItem(requestMethod, date, expires, response))
 
    private[http4s] final case class Age(val deltaSeconds: Long) extends AnyVal
    private[http4s] object Age:
