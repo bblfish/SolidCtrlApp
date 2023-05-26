@@ -20,6 +20,7 @@ import cats.MonadError
 import cats.effect.{IO, Ref, SyncIO}
 import munit.CatsEffectSuite
 import org.http4s.Uri
+import run.cosy.http.cache.{TreeDirCache, ServerNotFound}
 
 class CacheTest extends CatsEffectSuite:
    import TreeDirCache.*

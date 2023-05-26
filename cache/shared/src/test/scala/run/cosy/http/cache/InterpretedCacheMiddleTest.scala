@@ -17,6 +17,7 @@ import io.chrisdavenport.mules.http4s.CacheItem
 import org.typelevel.ci.CIStringSyntax
 import cats.data.NonEmptyList
 import io.chrisdavenport.mules.http4s.internal.Caching
+import run.cosy.http.cache.TreeDirCache
 
 object InterpretedCacheMiddleTest:
    def bytesToString(bytes: Vector[Byte]): String = bytes.map(_.toChar).mkString

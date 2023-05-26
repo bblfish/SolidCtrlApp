@@ -23,6 +23,7 @@ import io.chrisdavenport.mules.http4s.{CacheItem, CacheType, CachedResponse}
 import org.http4s.*
 import org.http4s.client.Client
 import cats.arrow.FunctionK
+import run.cosy.http.cache.TreeDirCache
 
 /** Interpreted Cache don't just cache the resource but the interpretation of that resource, e.g.
   * the parsed JSON or XML, or an RDF Graph or Quads
