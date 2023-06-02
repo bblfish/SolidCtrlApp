@@ -29,6 +29,33 @@ object UrlUtil:
 
    extension (llUri: ll.Url) def toh4: org.http4s.Uri = llUrltoHttp4s(llUri)
 
+   extension (llUrl: ll.AbsoluteUrl)
+     /** the parent url is the container containing this url most directly. Always ends in slash.
+       * The root has itself as container
+       */
+     def parent: Option[ll.AbsoluteUrl] =
+        given ll.config.UriConfig = ll.config.UriConfig.default
+        val parentPathOpt = llUrl.path match
+         case ap: ll.AbsolutePath => ap.parent
+         case _ => None
+        parentPathOpt.map(x =>
+          llUrl.copy(
+            path = x,
+            query = ll.QueryString.empty,
+            fragment = None
+          )
+        )
+
+   extension (absPath: ll.AbsolutePath)
+     def parent: Option[ll.AbsolutePath] =
+        val dropedSlash =
+          if absPath.parts.last == ""
+          then absPath.parts.dropRight(1)
+          else absPath.parts
+        if dropedSlash.isEmpty
+        then None
+        else Some(new ll.AbsolutePath(dropedSlash.updated(dropedSlash.length - 1, "")))
+
    extension [R <: RDF](uri: RDF.URI[R])(using ops: Ops[R])
      def toLL: Try[ll.Uri] =
         import ops.{*, given}

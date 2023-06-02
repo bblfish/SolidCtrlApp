@@ -65,6 +65,8 @@ import io.lemonlabs.uri.AbsoluteUrl
 import io.lemonlabs.uri.config.UriConfig
 import BasicWallet.*
 import org.http4s.Method
+import org.http4s.Method.{GET, HEAD}
+import org.http4s.dsl.request
 
 class BasicId(val username: String, val password: String)
 
@@ -103,6 +105,11 @@ object BasicWallet:
    val defaultACOpt = Some(defaultAC)
    val ldpContains = "http://www.w3.org/ns/ldp#contains"
 
+   /** The type of relations that can be found in the Link header, Left is reverse and Right is
+     * forward, and the link is to the absoluteUrl from the document
+     */
+   type Rel = (Either[String, String], ll.AbsoluteUrl)
+
    /** extract the links from the headers as pairs of Eithers for rev or rel relations and the url
      * value, and absolutize the Url. Todo: we use ll.Uri here, because they have a clear type for
      * absolute urls, but this is a we really need a url abstraction that does this right
@@ -110,7 +117,7 @@ object BasicWallet:
    def extractLinks(
        requestUrl: AbsoluteUrl,
        reponseHeaders: org.http4s.Headers
-   ): Seq[(Either[String, String], ll.AbsoluteUrl)] = reponseHeaders.get[Link] match
+   ): Seq[Rel] = reponseHeaders.get[Link] match
     case None => Seq()
     case Some(link) => link.values.toList.toSeq.collect {
         case LinkValue(uri, rel, rev, _, _) if rel.isDefined || rev.isDefined =>
@@ -151,6 +158,8 @@ class WalletTools[Rdf <: RDF](using ops: Ops[Rdf]):
      * todo: is the final URL that a redirect goes to the URL to use to absolutize a graph, or is
      * the request URL after going through the redirects? Because that is important to know how much
      * info is needed to be able to interpret the relative graph.
+     *
+     * Todo: also store graphs for other responses? (e.g. error responses?)
      */
    def cachedRelGraphMiddleware[F[_]: Concurrent: Clock](
        cache: TreeDirCache[F, CacheItem[RDF.rGraph[Rdf]]]
@@ -160,15 +169,17 @@ class WalletTools[Rdf <: RDF](using ops: Ops[Rdf]):
      .client[F, RDF.rGraph[Rdf]](
        cache,
        (response: h4s.Response[F]) =>
-          if !response.status.isSuccess
-          then
-            Concurrent[F].pure(CachedResponse[RDF.rGraph[Rdf]](
-              response.status,
-              response.httpVersion,
-              response.headers,
-              None
-            ))
-          else  
+         if !response.status.isSuccess
+         then
+            Concurrent[F].pure(
+              CachedResponse[RDF.rGraph[Rdf]](
+                response.status,
+                response.httpVersion,
+                response.headers,
+                None
+              )
+            )
+         else
             import rdfDecoders.allrdf
             response.as[RDF.rGraph[Rdf]].map { rG =>
               CachedResponse[RDF.rGraph[Rdf]](
@@ -182,6 +193,7 @@ class WalletTools[Rdf <: RDF](using ops: Ops[Rdf]):
        enhance = _.withHeaders(rdfDecoders.allRdfAccept)
      )
 
+   /** The requesturi is within the container */
    def withinTry(requestUri: RDF.URI[Rdf], container: RDF.URI[Rdf]): Try[Boolean] =
      for
         case requ: ll.AbsoluteUrl <- requestUri.toLL
@@ -292,48 +304,145 @@ class BasicWallet[F[_], Rdf <: RDF](
    end basicChallenge
 
    // todo: do we need the return to be a Resource? Would F[Graph] be enough?
-   /**
-    * Fetches the ACL for the given uri, and if it is not found, tries to find the ACL for the
-    * linkedToContainer (not implemented yet). 
-    */ 
+   /** Fetches the ACL for the given uri, and if it is not found, tries to find the ACL for the
+     * linkedToContainer (not implemented yet).
+     */
    def fetchAclGr(
        uri: AbsoluteUrl,
-       fallbackContainer: Option[ll.AbsoluteUrl] = None
-   ): Resource[F, RDF.Graph[Rdf]] = iClient.run(h4s.Request(uri = uri.toh4.withoutFragment))
-     .flatMap { crG =>
-       Resource.liftK(
-         if crG.status.isSuccess && crG.body.isDefined
-         then fc.pure(crG.body.get.resolveAgainst(uri))
-         else fc.raiseError(Exception(s"Could not find ACL at $uri"))
-       )
-     }
+       onlyCache: Boolean = false
+   ): Resource[F, RDF.Graph[Rdf]] = fetchRdf(uri, GET, onlyCache).flatMap { crG =>
+     Resource.liftK(
+       if crG.status.isSuccess && crG.body.isDefined
+       then fc.pure(crG.body.get.resolveAgainst(uri))
+       else fc.raiseError(Exception(s"Could not find ACL at $uri"))
+     )
+   }
 
-   def findAclForContainer(containerUrl: AbsoluteUrl): Resource[F, RDF.Graph[Rdf]] =
-     // todo: should be a HEAD request!!!
-     iClient.run(h4s.Request(Method.HEAD, uri = containerUrl.toh4.withoutFragment)).flatMap { crG =>
-       // todo: potentially check for the right status codes...
-       // which ones would be correct?  Clearly 201, 202, 404. But what others?
-       extractLinks(containerUrl, crG.headers).collectFirst { case (Right("acl"), uri) =>
-         fetchAclGr(uri)
+   def findAclForContainer(
+       containerUrl: AbsoluteUrl,
+       onlyCache: Boolean = false
+   ): Resource[F, RDF.Graph[Rdf]] = fetchRdf(containerUrl, HEAD, onlyCache).flatMap { crG =>
+     // todo: potentially check for the right status codes...
+     // which ones would be correct?  Clearly 201, 202, 404. But what others?
+     extractLinks(containerUrl, crG.headers)
+       .collectFirst { case (Right("acl"), uri: ll.AbsoluteUrl) =>
+         fetchAclGr(uri.resolve(containerUrl).toAbsoluteUrl, onlyCache)
        }.getOrElse {
-         Resource.raiseError[F,RDF.Graph[Rdf],Throwable](Throwable(s"Could not find ACL for $containerUrl"))
+         Resource.raiseError[F, RDF.Graph[Rdf], Throwable](
+           Throwable(s"Could not find ACL for $containerUrl")
+         )
        }
+   }
 
-     }
+   /** fetch rdf graph at Url using Method, adding an `only-if-cached` header if needed. */
+   def fetchRdf(
+       url: ll.AbsoluteUrl,
+       method: h4s.Method = GET,
+       onlyCache: Boolean = false
+   ): Resource[F, CachedResponse[RDF.Graph[Rdf]]] =
+      import h4s.CacheDirective.`only-if-cached`
+      // we don't need the `Accept` headers as those are added by the cache middleware
+      val headers =
+        if onlyCache then h4s.Headers(h4s.headers.`Cache-Control`(`only-if-cached`))
+        else h4s.Headers.empty
+      iClient.run(h4s.Request(method = method, uri = url.toh4.withoutFragment, headers = headers))
+        .map(cachedRes => cachedRes.map(_.resolveAgainst(url)))
 
+   /** we find ACL by going to the web */
    def findAclFor(
        requestUrl: ll.AbsoluteUrl,
-       responseHeaders: org.http4s.Headers
+       responseHeaders: org.http4s.Headers,
+       depth: Int = 50
    ): Resource[F, RDF.Graph[Rdf]] =
-      val links = extractLinks(requestUrl, responseHeaders).sortBy(x => relPriority(x._1))
-      val default = links.collectFirst {
-        case (Right(`defaultAC`), uri) => findAclForContainer(uri)
-        case (Right("acl"), uri) => fetchAclGr(uri)
+      val onlyCache: Boolean = false
+      val links: Seq[Rel] = extractLinks(requestUrl, responseHeaders).sortBy(x => relPriority(x._1))
+      val acl = links.collectFirst {
+        case (Right(`defaultAC`), uri) => findAclForContainer(uri, onlyCache)
+        case (Right("acl"), uri) => fetchAclGr(uri, onlyCache)
       }
-      default.getOrElse {
-        Resource.raiseError[F, RDF.Graph[Rdf],Throwable](Exception(s"No useable link to find ACL from $requestUrl"))
-      }  
+      acl.getOrElse {
+        findContainerFor(requestUrl, links, onlyCache, depth) match
+         case None => Resource.raiseError[F, RDF.Graph[Rdf], Throwable](
+             Exception(s"No useable link to find ACL from $requestUrl")
+           )
+         case Some(url) => findAclFor(url, responseHeaders, depth - 1)
+      }
    end findAclFor
+
+   /** when looking in the cache we never assume that no info is bad info, we just continue looking,
+     * so we don't even assume we already have the data of the first request. (hence no headers)
+     * todo: see if we can combine this function and findAclFor into one function to avoid
+     * duplication
+     */
+   def findCachedAclFor(
+       requestUrl: ll.AbsoluteUrl,
+       depth: Int = 50
+   ): Resource[F, RDF.Graph[Rdf]] =
+      val onlyCache: Boolean = false
+      // we start by making a HEAD request, because we just want to find the link to the acl,
+      // if requestUrl is the acl, then it may link back to itself, giving us what we want, or it
+      // will link to nothing, in which case we won't notice which is a problem, in which case we won't notice which is a problem
+      // todo: have acls link back to themselves on the server as per https://github.com/solid/authorization-panel/issues/189
+      //   or find another way to allow the client to tell it is on an acl.
+      fetchRdf(requestUrl, HEAD, onlyCache).flatMap { crG =>
+         val links = extractLinks(requestUrl, crG.headers)
+         // we signal an continuable failure by plaing it in the internal Option
+         val defaultOrRel: Resource[F, Option[RDF.Graph[Rdf]]] =
+           if onlyCache && crG.status == h4s.Status.GatewayTimeout
+           then // we retrun a resource with a None, meaning we can continue looking in the cache
+              Resource.liftK(fc.pure[Option[RDF.Graph[Rdf]]](None))
+           else
+              for
+                 optDeflt <- links.collectFirst { case (Right(`defaultAC`), uri) =>
+                   findAclForContainer(uri, onlyCache)
+                 }.sequence
+                 // if the defaultAC link above fails we fail otherwise
+                 optEAcl <- optDeflt match
+                  case Some(_) => optDeflt.map(Right[Throwable, RDF.Graph[Rdf]])
+                      .pure[Resource[F, _]]
+                  case None => links.collectFirst { case (Right("acl"), uri) =>
+                      fetchAclGr(uri, onlyCache)
+                    }.map(_.attempt).sequence
+              yield optEAcl.flatMap(_.toOption)
+
+         // fetching acl directly can fail we should continue if it does
+         defaultOrRel.flatMap {
+           case Some(gr) => gr.pure[Resource[F, _]]
+           case None => findContainerFor(requestUrl, links, onlyCache, depth) match
+              case None => Resource.raiseError[F, RDF.Graph[Rdf], Throwable](
+                  Exception(s"No useable link to find ACL from $requestUrl")
+                )
+              case Some(url) => findCachedAclFor(url, depth - 1)
+         }
+      }
+   end findCachedAclFor
+
+   /** @param requestUrl
+     *   the original request url
+     * @param links
+     *   the links found in the response or previous request on requestUrl
+     * @param onlyCache
+     *   if true, only the cache is searched
+     * @param depth
+     *   the depth to search for ldp:contains reverse relations, after which URL hierarchy can be
+     *   looked at if in onlyCache mode
+     * @return
+     *   container for given URL looking at ldp:contains relation in header or if none is found in
+     *   onlyCache mode looking at parent of requestUrl
+     */
+   def findContainerFor(
+       requestUrl: ll.AbsoluteUrl,
+       links: Seq[Rel],
+       onlyCache: Boolean = false,
+       depth: Int
+   ): Option[ll.AbsoluteUrl] = links.collectFirst {
+     case (Right(`ldpContains`), uri) if depth >= 0 => uri.resolve(requestUrl).toAbsoluteUrl
+   }.orElse {
+     if onlyCache
+     then // we don't need to count depth on onlycache as Urls have a pragmetic size limit
+        requestUrl.parent
+     else None
+   }
 
    /** given the original request and a response, return the correctly signed original request (test
      * for the HttpSig WWW-Authenticate header has been done before calling this function)
@@ -346,45 +455,55 @@ class BasicWallet[F[_], Rdf <: RDF](
    ): F[h4s.Request[F]] =
       import BasicWallet.*
       val result: Resource[F, h4s.Request[F]] = findAclFor(lastReqUrl, response.headers)
-        .flatMap { (aclGr: RDF.Graph[Rdf]) =>
-           import io.lemonlabs.uri.config.UriConfig
-           val reqRes = ops.URI(lastReqUrl.copy(fragment = None)(UriConfig.default))
-           val keyNodes: Iterator[St.Subject[Rdf]] =
-             for
-                agentNode <- findAgents(aclGr, reqRes, originalRequest.method)
-                controllerTriple <- aclGr.find(*, sec.controller, agentNode)
-             yield controllerTriple.subj
-
-           import run.cosy.http4s.Http4sTp.given
-           val keys: Iterable[KeyData[F]] = keyNodes.collect { case u: RDF.URI[Rdf] =>
-             keyIdDB.find(kid => kid.keyIdAtt.value.asciiStr == u.value).toList
-           }.flatten.to(Iterable)
-
-           val x: F[h4s.Request[F]] =
-             for
-                keydt <- fc.fromOption[KeyData[F]](
-                  keys.headOption,
-                  Exception(
-                    s"none of our keys fit the ACL for resource $lastReqUrl accessed in " +
-                      s"${originalRequest.method} matches the rules in graph { $aclGr } "
-                  )
-                )
-                signingFn <- keydt.signer
-                now <- clock.realTime // <- todo, add clock time caching perhaps
-                signedReq <- MessageSignature.withSigInput[F, H4](
-                  originalRequest.asInstanceOf[Http.Request[H4]],
-                  Rfc8941.Token("sig1"),
-                  keydt.mkSigInput(now),
-                  signingFn
-                )
-             yield
-                val res = run.cosy.http4s.Http4sTp.hOps
-                  .addHeader[Http.Request[H4]](signedReq)("Authorization", "HttpSig proof=sig1")
-                h4ReqToHttpReq(res)
-           Resource.liftK(x)
-        }
+        .flatMap(signRequest(originalRequest, lastReqUrl))
       result.use(fc.pure)
    end httpSigChallenge
+
+   /** sign the request with the first key that matches the rules in the aclGraph. (We pass the requestUrl 
+    * too to avoid recaculating it from the request...)
+   */
+   def signRequest(
+       originalRequest: h4s.Request[F],
+       originalRequestUrl: ll.AbsoluteUrl
+   )(
+       aclGr: RDF.Graph[Rdf]
+   ): Resource[F, h4s.Request[F]] =
+      import io.lemonlabs.uri.config.UriConfig
+      val reqRes = ops.URI(originalRequestUrl.copy(fragment = None)(UriConfig.default))
+      val keyNodes: Iterator[St.Subject[Rdf]] =
+        for
+           agentNode <- findAgents(aclGr, reqRes, originalRequest.method)
+           controllerTriple <- aclGr.find(*, sec.controller, agentNode)
+        yield controllerTriple.subj
+
+      import run.cosy.http4s.Http4sTp.given
+      val keys: Iterable[KeyData[F]] = keyNodes.collect { case u: RDF.URI[Rdf] =>
+        keyIdDB.find(kid => kid.keyIdAtt.value.asciiStr == u.value).toList
+      }.flatten.to(Iterable)
+
+      val x: F[h4s.Request[F]] =
+        for
+           keydt <- fc.fromOption[KeyData[F]](
+             keys.headOption,
+             Exception(
+               s"none of our keys fit the ACL for resource $originalRequestUrl accessed in " +
+                 s"${originalRequest.method} matches the rules in graph { $aclGr } "
+             )
+           )
+           signingFn <- keydt.signer
+           now <- clock.realTime // <- todo, add clock time caching perhaps
+           signedReq <- MessageSignature.withSigInput[F, H4](
+             originalRequest.asInstanceOf[Http.Request[H4]],
+             Rfc8941.Token("sig1"),
+             keydt.mkSigInput(now),
+             signingFn
+           )
+        yield
+           val res = run.cosy.http4s.Http4sTp.hOps
+             .addHeader[Http.Request[H4]](signedReq)("Authorization", "HttpSig proof=sig1")
+           h4ReqToHttpReq(res)
+      Resource.liftK(x)
+   end signRequest 
 
    /** This is different from middleware such as FollowRedirects, as that essentially continues the
      * request. Here we need to stop the request and make new ones to find the access control rules
@@ -416,6 +535,17 @@ class BasicWallet[F[_], Rdf <: RDF](
        case _ => ??? // fail
    end sign
 
-   override def signFromDB(req: h4s.Request[F]): F[h4s.Request[F]] = fc.point(req)
+   override def signFromDB(req: h4s.Request[F]): F[h4s.Request[F]] =
+     // todo: the DB needs to keep track of what WWW-Authenticate methods the server allows.
+     // These will be difficult to find in the headers, as the 401 in which they appeared may be
+     // somewhere completely different.
+     // I will assume that the server can do HTTP-Sig for the moment
+     // todo: fix!!!
+     // todo: as we endup with F[Request] do we need Resources everywhere here?
+     findCachedAclFor(req.uri.toLL.toAbsoluteUrl, 100).flatMap { 
+       signRequest(req, req.uri.toLL.toAbsoluteUrl)
+     }.use(fc.pure).map { req =>
+        println(s"===> signed request ${req}uri} with headers ${req.headers}"); req
+     }
 
 end BasicWallet

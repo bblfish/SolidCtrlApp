@@ -97,6 +97,14 @@ object Delete {
     }
 }
 
+
+/** Local Search function into the cache */
+trait LocalSearch[F[_], K, V]:
+  /* find closest value from key going down the URL hierarchy that satisifies predicate.
+   * the domain is an Option[K], so the function can decided what to do if a node does not exist
+   */
+  def findClosest(k: K)(predicate: Option[K] => Boolean): F[Option[V]]
+
 trait Cache[F[_], K, V] 
   extends Lookup[F, K, V]
   with Insert[F, K, V]

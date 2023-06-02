@@ -3,7 +3,7 @@ import sbt.{Def, *}
 
 object Dependencies {
   object Ver {
-    val scala = "3.2.2"
+    val scala = "3.3.0"
     val http4s = "1.0.0-M39"
     val banana = "0.9-c996591-SNAPSHOT"
     val bobcats = "0.3-3236e64-SNAPSHOT"

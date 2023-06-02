@@ -122,7 +122,7 @@ lazy val cache = crossProject(JVMPlatform).crossType(CrossType.Full).in(file("ca
       cats.core.value,
       cats.free.value,
       http4s.core.value,
-      http4s.client.value,
+      http4s.client.value
     ),
     libraryDependencies ++= Seq(
 //      munit.value % Test,

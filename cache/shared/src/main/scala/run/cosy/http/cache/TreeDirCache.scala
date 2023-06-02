@@ -19,7 +19,7 @@ package run.cosy.http.cache
 import cats.effect.kernel.{Ref, Sync}
 import cats.syntax.all.*
 import cats.{FlatMap, MonadError}
-import io.chrisdavenport.mules.Cache
+import io.chrisdavenport.mules.{Cache,LocalSearch}
 import org.http4s.Uri
 import run.cosy.http.cache.DirTree.*
 import run.cosy.http.cache.TreeDirCache.WebCache
@@ -94,16 +94,17 @@ case class TreeDirCache[F[_], X](
         val (path, v) = tree.find(k.path.segments)
         if path.isEmpty then v else None
 
-   /** find the closest node matching `select` going backwards from the closest node we have leading
-     * to path. So if we want <people/henry/blog/2023/04/01/world-at-peace> but we have
-     * <people/henry/blog/2023> and </people/henry/blog/> but only that content at the latter
-     * resource matches, then we will get that.
-     */
-   def findClosest(k: Uri)(matcher: Option[X] => Boolean): F[Option[X]] =
-     for
-        scheme <- F.fromOption(k.scheme, IncompleteServiceInfo(k))
-        auth <- F.fromOption(k.authority, IncompleteServiceInfo(k))
-        webCache <- cacheRef.get
-        server = (scheme, auth)
-        tree <- F.fromOption(webCache.get(server), ServerNotFound(k))
-     yield tree.findClosest(k.path.segments)(matcher).flatten
+   // /** find the closest node matching `select` going backwards from the closest node we have leading
+   //   * to path. So if we want <people/henry/blog/2023/04/01/world-at-peace> but we have
+   //   * <people/henry/blog/2023> and </people/henry/blog/> but only that content at the latter
+   //   * resource matches, then we will get that.
+   //   */
+   // def findClosest(k: Uri)(predicate: Option[X] => Boolean): F[Option[X]] =
+   //   for
+   //      scheme <- F.fromOption(k.scheme, IncompleteServiceInfo(k))
+   //      auth <- F.fromOption(k.authority, IncompleteServiceInfo(k))
+   //      webCache <- cacheRef.get
+   //      server = (scheme, auth)
+   //      tree <- F.fromOption(webCache.get(server), ServerNotFound(k))
+   //   yield tree.findClosest(k.path.segments)(predicate).flatten
+
