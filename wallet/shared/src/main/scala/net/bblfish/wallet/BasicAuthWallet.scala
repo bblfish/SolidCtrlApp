@@ -378,7 +378,7 @@ class BasicWallet[F[_], Rdf <: RDF](
        requestUrl: ll.AbsoluteUrl,
        depth: Int = 50
    ): Resource[F, RDF.Graph[Rdf]] =
-      val onlyCache: Boolean = false
+      val onlyCache: Boolean = true
       // we start by making a HEAD request, because we just want to find the link to the acl,
       // if requestUrl is the acl, then it may link back to itself, giving us what we want, or it
       // will link to nothing, in which case we won't notice which is a problem, in which case we won't notice which is a problem
@@ -535,7 +535,7 @@ class BasicWallet[F[_], Rdf <: RDF](
        case _ => ??? // fail
    end sign
 
-   override def signFromDB(req: h4s.Request[F]): F[h4s.Request[F]] =
+   override def signFromDB(req: h4s.Request[F]): F[Either[Throwable,h4s.Request[F]]] =
      // todo: the DB needs to keep track of what WWW-Authenticate methods the server allows.
      // These will be difficult to find in the headers, as the 401 in which they appeared may be
      // somewhere completely different.
@@ -544,8 +544,6 @@ class BasicWallet[F[_], Rdf <: RDF](
      // todo: as we endup with F[Request] do we need Resources everywhere here?
      findCachedAclFor(req.uri.toLL.toAbsoluteUrl, 100).flatMap { 
        signRequest(req, req.uri.toLL.toAbsoluteUrl)
-     }.use(fc.pure).map { req =>
-        println(s"===> signed request ${req}uri} with headers ${req.headers}"); req
-     }
-
+     }.attempt.use(fc.pure)
+     
 end BasicWallet

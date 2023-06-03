@@ -34,7 +34,11 @@ import org.http4s.{BasicCredentials, Header, Request, Response, Status}
 import scala.util.{Failure, Success, Try}
 
 /** Client Authentication is a middleware that transforms a Client into a new Client that can use a
-  * Wallet to have requests signed.
+  * Wallet to have requests signed. It will try to sign a request
+  *   1. before it is sent using information it has available from the local cache on the server. So
+  *      it will try to find an relevant ACL that it can use to determine if it can sign something
+  *   1. if the server returns a 401 it will use the response info to fetch the ACL rules and if it
+  *      can, sign the request
   */
 object AuthNClient:
    def apply[F[_]: Concurrent](wallet: Wallet[F])(
@@ -60,9 +64,10 @@ object AuthNClient:
         // Not 100% sure this is so much needed here...
         Hotswap.create[F, Response[F]].flatMap { hotswap =>
           Resource.eval(
-            wallet.signFromDB(req).flatMap { possiblySignedReq =>
-              authLoop(possiblySignedReq, 0, hotswap)
-            }
+            wallet.signFromDB(req).map {
+              case Right(signedReq) => signedReq
+              case Left(_) => req
+            }.flatMap(req => authLoop(req, 0, hotswap))
           )
         }
       }

@@ -33,6 +33,6 @@ trait Wallet[F[_]]:
 
    /** previous requests to a server will return acls and methods that can be assumed to be valid
      * @param req
-     * @return
+     * @return a request with a signature if possible, otherwise an error that can be ignored
      */
-   def signFromDB(req: Request[F]): F[Request[F]]
+   def signFromDB(req: Request[F]): F[Either[Throwable,Request[F]]]
