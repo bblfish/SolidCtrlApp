@@ -23,8 +23,7 @@ package io.chrisdavenport.mules.http4s
   * Cache-Control: private, whereas public caches are not allowed to cache that information
   */
 sealed trait CacheType:
-   /** Whether or not a Cache is Shared, public caches are shared, private caches are not
-     */
+   /** Whether or not a Cache is Shared, public caches are shared, private caches are not */
    def isShared: Boolean = this match
     case CacheType.Private => false
     case CacheType.Public => true

@@ -59,8 +59,7 @@ object DirTree:
    extension [X](thizDt: DirTree[X])
       def ->(name: Path.Segment): ZLink[X] = ZLink(thizDt, name)
 
-      /** find the closest node X available when following Path return the remaining path
-        */
+      /** find the closest node X available when following Path return the remaining path */
       @tailrec
       def find(at: Path): (Path, X) = at match
        case Seq() => (at, thizDt.head)
@@ -126,8 +125,7 @@ object DirTree:
        case (Right(_), zpath) => newDt.rezip(zpath)
        case _ => thizDt
 
-      /** set dirTree at path creating new directories with default values if needed
-        */
+      /** set dirTree at path creating new directories with default values if needed */
       def insertDirAt(path: Path, dt: DirTree[X], default: X): DirTree[X] =
         thizDt.unzipAlong(path) match
          case (Left(path), zpath) => dt.rezip(path.map(p => pure(default) -> p).appendedAll(zpath))
