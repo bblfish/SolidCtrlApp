@@ -19,7 +19,7 @@ package run.cosy.http.cache
 import cats.effect.kernel.{Ref, Sync}
 import cats.syntax.all.*
 import cats.{FlatMap, MonadError}
-import io.chrisdavenport.mules.{Cache,LocalSearch}
+import io.chrisdavenport.mules.{Cache, LocalSearch}
 import org.http4s.Uri
 import run.cosy.http.cache.DirTree.*
 import run.cosy.http.cache.TreeDirCache.WebCache
@@ -107,4 +107,3 @@ case class TreeDirCache[F[_], X](
    //      server = (scheme, auth)
    //      tree <- F.fromOption(webCache.get(server), ServerNotFound(k))
    //   yield tree.findClosest(k.path.segments)(predicate).flatten
-

@@ -459,9 +459,9 @@ class BasicWallet[F[_], Rdf <: RDF](
       result.use(fc.pure)
    end httpSigChallenge
 
-   /** sign the request with the first key that matches the rules in the aclGraph. (We pass the requestUrl 
-    * too to avoid recaculating it from the request...)
-   */
+   /** sign the request with the first key that matches the rules in the aclGraph. (We pass the
+     * requestUrl too to avoid recaculating it from the request...)
+     */
    def signRequest(
        originalRequest: h4s.Request[F],
        originalRequestUrl: ll.AbsoluteUrl
@@ -503,7 +503,7 @@ class BasicWallet[F[_], Rdf <: RDF](
              .addHeader[Http.Request[H4]](signedReq)("Authorization", "HttpSig proof=sig1")
            h4ReqToHttpReq(res)
       Resource.liftK(x)
-   end signRequest 
+   end signRequest
 
    /** This is different from middleware such as FollowRedirects, as that essentially continues the
      * request. Here we need to stop the request and make new ones to find the access control rules
@@ -535,15 +535,15 @@ class BasicWallet[F[_], Rdf <: RDF](
        case _ => ??? // fail
    end sign
 
-   override def signFromDB(req: h4s.Request[F]): F[Either[Throwable,h4s.Request[F]]] =
+   override def signFromDB(req: h4s.Request[F]): F[Either[Throwable, h4s.Request[F]]] =
      // todo: the DB needs to keep track of what WWW-Authenticate methods the server allows.
      // These will be difficult to find in the headers, as the 401 in which they appeared may be
      // somewhere completely different.
      // I will assume that the server can do HTTP-Sig for the moment
      // todo: fix!!!
      // todo: as we endup with F[Request] do we need Resources everywhere here?
-     findCachedAclFor(req.uri.toLL.toAbsoluteUrl, 100).flatMap { 
+     findCachedAclFor(req.uri.toLL.toAbsoluteUrl, 100).flatMap {
        signRequest(req, req.uri.toLL.toAbsoluteUrl)
      }.attempt.use(fc.pure)
-     
+
 end BasicWallet

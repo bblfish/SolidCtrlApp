@@ -40,7 +40,8 @@ object CacheItem:
        requestMethod: Method,
        response: CachedResponse[T],
        expires: Option[HttpDate]
-   ): F[CacheItem[T]] = HttpDate.current[F].map(date => new CacheItem(requestMethod, date, expires, response))
+   ): F[CacheItem[T]] = HttpDate.current[F]
+     .map(date => new CacheItem(requestMethod, date, expires, response))
 
    private[http4s] final case class Age(val deltaSeconds: Long) extends AnyVal
    private[http4s] object Age:

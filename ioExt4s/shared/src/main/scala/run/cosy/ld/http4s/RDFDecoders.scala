@@ -65,7 +65,7 @@ class RDFDecoders[F[_], Rdf <: RDF](using
            }
          )
       }
-           
+
    import MediaType.{application, text}
    import MediaType.application.`ld+json`
 

@@ -122,11 +122,11 @@ object WebTest:
      |""".stripMargin
 
    val bblBlogRootContainer = """
-   |@prefix ldp: <http://www.w3.org/ns/ldp#> .
-   |
-   |<> a ldp:BasicContainer;
-   |  ldp:contains <2023/> .
-   |""".stripMargin
+     |@prefix ldp: <http://www.w3.org/ns/ldp#> .
+     |
+     |<> a ldp:BasicContainer;
+     |  ldp:contains <2023/> .
+     |""".stripMargin
 
    val bblWorldAtPeace = "Hello World!"
    val bblBlogVirgin = "Play in three acts"
@@ -183,7 +183,8 @@ object WebTest:
              bblBlogVirgin,
              headers("birth", Some("/people/henry/blog/"), MediaType.text.plain)
            )
-         case HEAD -> Root / "people" / "henry" / "blog" / "" => Async[F].pure(bblBlogDir(req).copy(entity = Entity.empty))
+         case HEAD -> Root / "people" / "henry" / "blog" / "" => Async[F]
+             .pure(bblBlogDir(req).copy(entity = Entity.empty))
          case GET -> Root / "people" / "henry" / "blog" / "" => Async[F].pure(bblBlogDir(req))
          case GET -> Root / "people" / "henry" / "blog" / "2023" / "04" / "01" / "world-at-peace" =>
            OK[F](

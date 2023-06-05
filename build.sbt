@@ -1,6 +1,6 @@
 import sbt.ThisBuild
 import sbtcrossproject.CrossPlugin.autoImport.{crossProject, CrossType}
-import Dependencies._
+import Dependencies.*
 
 name := "SolidApp"
 ThisBuild / organization := "net.bblfish"
@@ -214,7 +214,6 @@ lazy val scripts = crossProject(JVMPlatform).in(file("scripts"))
       crypto.bobcats.value classifier ("tests"), // bobcats test examples,
       crypto.bobcats.value classifier ("tests-sources"), // bobcats test examples soources,
       other.scalaUri.value,
-      
       http4s.ember_client.value,
       crypto.nimbusJWT_JDK.value,
       crypto.bouncyJCA_JDK.value

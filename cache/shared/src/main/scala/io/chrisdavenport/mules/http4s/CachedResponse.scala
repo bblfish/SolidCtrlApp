@@ -33,7 +33,7 @@ final case class CachedResponse[T](
     body: Option[T]
 ):
    def withHeaders(headers: Headers): CachedResponse[T] = this.copy(headers = headers)
-      
+
    def map[S](f: T => S): CachedResponse[S] = this.copy(body = body.map(f))
 
 object CachedResponse:

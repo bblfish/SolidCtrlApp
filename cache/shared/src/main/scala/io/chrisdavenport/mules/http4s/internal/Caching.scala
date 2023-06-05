@@ -50,10 +50,8 @@ case class Caching[F[_]: Concurrent: Clock, T](
               then fk(CachedResponse.errorResponse[T](Status.GatewayTimeout).pure[F])
               else app.run(req).flatMap(resp => fk(withResponse(req, resp)))
             case Some(item) => CacheRules.cachedObjectOk(req, item, now) match
-               case Some(item) => 
-                  fk(item.response.pure[F])
-               case None => 
-                  app.run(
+               case Some(item) => fk(item.response.pure[F])
+               case None => app.run(
                    req.putHeaders(
                      CacheRules.getIfMatch(item.response).map(modelledHeadersToRaw(_)).toSeq*
                    ).putHeaders(

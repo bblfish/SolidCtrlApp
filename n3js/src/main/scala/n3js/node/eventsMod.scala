@@ -7,7 +7,7 @@
 // import scala.scalajs.js.annotation.{JSGlobalScope, JSGlobal, JSImport, JSName, JSBracketAccess}
 
 // object eventsMod {
-  
+
 //   /**
 //     * The `EventEmitter` class is defined and exposed by the `events` module:
 //     *
@@ -29,113 +29,113 @@
 //     def this(options: EventEmitterOptions) = this()
 //   }
 //   object EventEmitter
-  
+
 //   @js.native
 //   trait Abortable extends StObject {
-    
+
 //     /**
 //       * When provided the corresponding `AbortController` can be used to cancel an asynchronous action.
 //       */
 //     var signal: js.UndefOr[AbortSignal] = js.native
 //   }
 //   object Abortable {
-    
+
 //     @scala.inline
 //     def apply(): Abortable = {
 //       val __obj = js.Dynamic.literal()
 //       __obj.asInstanceOf[Abortable]
 //     }
-    
+
 //     @scala.inline
 //     implicit class AbortableMutableBuilder[Self <: Abortable] (val x: Self) extends AnyVal {
-      
+
 //       @scala.inline
 //       def setSignal(value: AbortSignal): Self = StObject.set(x, "signal", value.asInstanceOf[js.Any])
-      
+
 //       @scala.inline
 //       def setSignalUndefined: Self = StObject.set(x, "signal", js.undefined)
 //     }
 //   }
-  
+
 //   @js.native
 //   trait DOMEventTarget extends StObject {
-    
+
 //     def addEventListener(eventName: String, listener: js.Function1[/* repeated */ js.Any, Unit]): js.Any = js.native
 //     def addEventListener(eventName: String, listener: js.Function1[/* repeated */ js.Any, Unit], opts: Once): js.Any = js.native
 //   }
-  
+
 //   @js.native
 //   trait EventEmitterOptions extends StObject {
-    
+
 //     /**
 //       * Enables automatic capturing of promise rejection.
 //       */
 //     var captureRejections: js.UndefOr[Boolean] = js.native
 //   }
 //   object EventEmitterOptions {
-    
+
 //     @scala.inline
 //     def apply(): EventEmitterOptions = {
 //       val __obj = js.Dynamic.literal()
 //       __obj.asInstanceOf[EventEmitterOptions]
 //     }
-    
+
 //     @scala.inline
 //     implicit class EventEmitterOptionsMutableBuilder[Self <: EventEmitterOptions] (val x: Self) extends AnyVal {
-      
+
 //       @scala.inline
 //       def setCaptureRejections(value: Boolean): Self = StObject.set(x, "captureRejections", value.asInstanceOf[js.Any])
-      
+
 //       @scala.inline
 //       def setCaptureRejectionsUndefined: Self = StObject.set(x, "captureRejections", js.undefined)
 //     }
 //   }
-  
+
 //   @js.native
 //   trait NodeEventTarget extends StObject {
-    
+
 //     def once(eventName: String, listener: js.Function1[/* repeated */ js.Any, Unit]): this.type = js.native
 //     def once(eventName: js.Symbol, listener: js.Function1[/* repeated */ js.Any, Unit]): this.type = js.native
 //   }
-  
+
 //   @js.native
 //   trait StaticEventEmitterOptions extends StObject {
-    
+
 //     var signal: js.UndefOr[AbortSignal] = js.native
 //   }
 //   object StaticEventEmitterOptions {
-    
+
 //     @scala.inline
 //     def apply(): StaticEventEmitterOptions = {
 //       val __obj = js.Dynamic.literal()
 //       __obj.asInstanceOf[StaticEventEmitterOptions]
 //     }
-    
+
 //     @scala.inline
 //     implicit class StaticEventEmitterOptionsMutableBuilder[Self <: StaticEventEmitterOptions] (val x: Self) extends AnyVal {
-      
+
 //       @scala.inline
 //       def setSignal(value: AbortSignal): Self = StObject.set(x, "signal", value.asInstanceOf[js.Any])
-      
+
 //       @scala.inline
 //       def setSignalUndefined: Self = StObject.set(x, "signal", js.undefined)
 //     }
 //   }
-  
+
 //   object global {
-    
+
 //     object NodeJS {
-      
+
 //       @js.native
 //       trait EventEmitter extends StObject {
-        
+
 //         /**
 //           * Alias for `emitter.on(eventName, listener)`.
 //           * @since v0.1.26
 //           */
 //         def addListener(eventName: String, listener: js.Function1[/* repeated */ js.Any, Unit]): this.type = js.native
 //         def addListener(eventName: js.Symbol, listener: js.Function1[/* repeated */ js.Any, Unit]): this.type = js.native
-        
+
 //         /**
 //           * Synchronously calls each of the listeners registered for the event named`eventName`, in the order they were registered, passing the supplied arguments
 //           * to each.
@@ -178,7 +178,7 @@
 //           */
 //         def emit(eventName: String, args: js.Any*): Boolean = js.native
 //         def emit(eventName: js.Symbol, args: js.Any*): Boolean = js.native
-        
+
 //         /**
 //           * Returns an array listing the events for which the emitter has registered
 //           * listeners. The values in the array are strings or `Symbol`s.
@@ -198,14 +198,14 @@
 //           * @since v6.0.0
 //           */
 //         def eventNames(): js.Array[String | js.Symbol] = js.native
-        
+
 //         /**
 //           * Returns the current max listener value for the `EventEmitter` which is either
 //           * set by `emitter.setMaxListeners(n)` or defaults to {@link defaultMaxListeners}.
 //           * @since v1.0.0
 //           */
 //         def getMaxListeners(): Double = js.native
-        
+
 //         /**
 //           * Returns the number of listeners listening to the event named `eventName`.
 //           * @since v3.2.0
@@ -213,7 +213,7 @@
 //           */
 //         def listenerCount(eventName: String): Double = js.native
 //         def listenerCount(eventName: js.Symbol): Double = js.native
-        
+
 //         /**
 //           * Returns a copy of the array of listeners for the event named `eventName`.
 //           *
@@ -228,14 +228,14 @@
 //           */
 //         def listeners(eventName: String): js.Array[js.Function] = js.native
 //         def listeners(eventName: js.Symbol): js.Array[js.Function] = js.native
-        
+
 //         /**
 //           * Alias for `emitter.removeListener()`.
 //           * @since v10.0.0
 //           */
 //         def off(eventName: String, listener: js.Function1[/* repeated */ js.Any, Unit]): this.type = js.native
 //         def off(eventName: js.Symbol, listener: js.Function1[/* repeated */ js.Any, Unit]): this.type = js.native
-        
+
 //         /**
 //           * Adds the `listener` function to the end of the listeners array for the
 //           * event named `eventName`. No checks are made to see if the `listener` has
@@ -268,7 +268,7 @@
 //           */
 //         def on(eventName: String, listener: js.Function1[/* repeated */ js.Any, Unit]): this.type = js.native
 //         def on(eventName: js.Symbol, listener: js.Function1[/* repeated */ js.Any, Unit]): this.type = js.native
-        
+
 //         /**
 //           * Adds a **one-time**`listener` function for the event named `eventName`. The
 //           * next time `eventName` is triggered, this listener is removed and then invoked.
@@ -299,7 +299,7 @@
 //           */
 //         def once(eventName: String, listener: js.Function1[/* repeated */ js.Any, Unit]): this.type = js.native
 //         def once(eventName: js.Symbol, listener: js.Function1[/* repeated */ js.Any, Unit]): this.type = js.native
-        
+
 //         /**
 //           * Adds the `listener` function to the _beginning_ of the listeners array for the
 //           * event named `eventName`. No checks are made to see if the `listener` has
@@ -319,7 +319,7 @@
 //           */
 //         def prependListener(eventName: String, listener: js.Function1[/* repeated */ js.Any, Unit]): this.type = js.native
 //         def prependListener(eventName: js.Symbol, listener: js.Function1[/* repeated */ js.Any, Unit]): this.type = js.native
-        
+
 //         /**
 //           * Adds a **one-time**`listener` function for the event named `eventName` to the_beginning_ of the listeners array. The next time `eventName` is triggered, this
 //           * listener is removed, and then invoked.
@@ -337,7 +337,7 @@
 //           */
 //         def prependOnceListener(eventName: String, listener: js.Function1[/* repeated */ js.Any, Unit]): this.type = js.native
 //         def prependOnceListener(eventName: js.Symbol, listener: js.Function1[/* repeated */ js.Any, Unit]): this.type = js.native
-        
+
 //         /**
 //           * Returns a copy of the array of listeners for the event named `eventName`,
 //           * including any wrappers (such as those created by `.once()`).
@@ -369,7 +369,7 @@
 //           */
 //         def rawListeners(eventName: String): js.Array[js.Function] = js.native
 //         def rawListeners(eventName: js.Symbol): js.Array[js.Function] = js.native
-        
+
 //         /**
 //           * Removes all listeners, or those of the specified `eventName`.
 //           *
@@ -383,7 +383,7 @@
 //         def removeAllListeners(): this.type = js.native
 //         def removeAllListeners(event: String): this.type = js.native
 //         def removeAllListeners(event: js.Symbol): this.type = js.native
-        
+
 //         /**
 //           * Removes the specified `listener` from the listener array for the event named`eventName`.
 //           *
@@ -465,7 +465,7 @@
 //           */
 //         def removeListener(eventName: String, listener: js.Function1[/* repeated */ js.Any, Unit]): this.type = js.native
 //         def removeListener(eventName: js.Symbol, listener: js.Function1[/* repeated */ js.Any, Unit]): this.type = js.native
-        
+
 //         /**
 //           * By default `EventEmitter`s will print a warning if more than `10` listeners are
 //           * added for a particular event. This is a useful default that helps finding

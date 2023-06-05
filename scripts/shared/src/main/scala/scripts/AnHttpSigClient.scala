@@ -104,7 +104,7 @@ object AnHttpSigClient:
    }
 
    @main
-   def fetch(uriStr: String = "http://localhost:8080/protected/README"):  Unit =
+   def fetch(uriStr: String = "http://localhost:8080/protected/README"): Unit =
       // ioStr(uri"http://localhost:8080/").unsafeRunSync()
       // ioStr(uri"http://localhost:8080/protected/").unsafeRunSync()
       val result = emberAuthClient.flatMap { client =>
