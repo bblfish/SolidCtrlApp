@@ -30,7 +30,7 @@ import run.cosy.http.cache.TreeDirCache
 import run.cosy.http.cache.ServerNotFound
 
 case class Caching[F[_]: Concurrent: Clock, T](
-    cache: TreeDirCache[F, CacheItem[T]],
+    cache: Cache[F, Uri, CacheItem[T]],
     interpret: Response[F] => F[CachedResponse[T]],
     cacheType: CacheType
 ):

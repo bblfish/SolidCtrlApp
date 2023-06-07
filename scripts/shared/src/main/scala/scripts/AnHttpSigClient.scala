@@ -17,32 +17,40 @@
 package scripts
 
 import _root_.io.lemonlabs.uri as ll
+import bobcats.AsymmetricKeyAlg
+import bobcats.PKCS8KeySpec
+import bobcats.Signer
+import bobcats.Verifier
 import bobcats.util.BouncyJavaPEMUtils.getPrivateKeySpec
-import bobcats.{AsymmetricKeyAlg, PKCS8KeySpec, Signer, Verifier}
 import cats.effect.*
 import cats.effect.unsafe.IORuntime
+import fs2.io.net.Network
+import io.chrisdavenport.mules.http4s.CacheItem
+import io.chrisdavenport.mules.{Cache, DeleteBelow, DBCache}
+import io.chrisdavenport.mules.http4s.CachedResponse
 import net.bblfish.app.auth.AuthNClient
-import net.bblfish.wallet.{BasicId, BasicWallet, KeyData, WalletTools}
-import org.w3.banana.jena.JenaRdf
-import org.w3.banana.jena.JenaRdf.ops
-import ops.given
-import org.http4s.Uri as H4Uri
-import org.w3.banana.jena.JenaRdf.R
-import run.cosy.http.headers.Rfc8941
-import run.cosy.ld.http4s.RDFDecoders
-import scodec.bits.ByteVector
+import net.bblfish.wallet.BasicId
+import net.bblfish.wallet.BasicWallet
+import net.bblfish.wallet.KeyData
+import net.bblfish.wallet.WalletTools
+import org.http4s.Response
 import org.http4s.client.*
 import org.http4s.ember.client.*
-import run.cosy.http.headers.SigIn.KeyId
-import org.w3.banana.RDF
+import org.http4s.Uri as H4Uri
 import org.w3.banana.Ops
-import run.cosy.http.cache.TreeDirCache.WebCache
-import io.chrisdavenport.mules.http4s.CacheItem
-import run.cosy.http.cache.TreeDirCache
+import org.w3.banana.RDF
+import org.w3.banana.jena.JenaRdf
+import org.w3.banana.jena.JenaRdf.R
+import org.w3.banana.jena.JenaRdf.ops
 import run.cosy.http.cache.InterpretedCacheMiddleware
-import org.http4s.Response
-import io.chrisdavenport.mules.http4s.CachedResponse
-import fs2.io.net.Network
+import run.cosy.http.cache.TreeDirCache
+import run.cosy.http.cache.TreeDirCache.WebCache
+import run.cosy.http.headers.Rfc8941
+import run.cosy.http.headers.SigIn.KeyId
+import run.cosy.ld.http4s.RDFDecoders
+import scodec.bits.ByteVector
+
+import ops.given
 
 object AnHttpSigClient:
    implicit val runtime: IORuntime = cats.effect.unsafe.IORuntime.global
@@ -94,13 +102,13 @@ object AnHttpSigClient:
 
    given rdfDecoders: RDFDecoders[IO, R] = RDFDecoders[IO, R]
    def ioStr(uri: H4Uri, client: Client[IO]): IO[String] = ClientTools
-     .authClient[IO, R](keyIdData, client).flatMap(_.expect[String](uri))
+     .authClient[IO, R](keyIdData, client, None).flatMap(_.expect[String](uri))
 
    // run "use" on this to get a client
    def emberClient: Resource[IO, Client[IO]] = EmberClientBuilder.default[IO].build
 
    def emberAuthClient: IO[Client[IO]] = emberClient.use { client =>
-     ClientTools.authClient(keyIdData, client)
+     ClientTools.authClient(keyIdData, client, Some(str => IO("--log: "+println(str))))
    }
 
    @main
@@ -121,27 +129,51 @@ object ClientTools:
 
    /** enhance client so that it logs and can authenticate with given keyId, and save acls to graph
      * cache it creates. (a bit adhoc of a function, but it is a script)
+     * todo: generalise this to a client that can take a set of keyIds and passwords
      */
    def authClient[F[_]: Clock: Async, R <: RDF](
        keyIdData: KeyData[F],
-       client: Client[F]
+       client: Client[F],
+       log: Option[String => F[Unit]] 
    )(using
        ops: Ops[R],
        rdfDecoders: RDFDecoders[F, R]
    ): F[Client[F]] =
       import org.http4s.client.middleware.Logger
-      val loggedClient: Client[F] = Logger[F](
-        true,
-        true,
-        logAction = Some(str => Concurrent[F].pure(System.out.println(str)))
-      )(client)
+      // val loggedClient: Client[F] = Logger[F](
+      //   true,
+      //   true,
+      //   logAction = Some(str => Concurrent[F].pure(System.out.println(str)))
+      // )(client)
       val walletTools: WalletTools[R] = new WalletTools[R]
       for ref <- Ref.of[F, WebCache[CacheItem[RDF.rGraph[R]]]](Map.empty)
       yield
-         val cache = TreeDirCache[F, CacheItem[RDF.rGraph[R]]](ref)
-         val interClientMiddleware = walletTools.cachedRelGraphMiddleware(cache)
+         val cache: DBCache[F, H4Uri, CacheItem[RDF.rGraph[R]]] =
+           TreeDirCache[F, CacheItem[RDF.rGraph[R]]](ref)
+         val lcache: DBCache[F, H4Uri, CacheItem[RDF.rGraph[R]]] = log match
+          case None => cache
+          case Some(f) => new DBCache[F, H4Uri, CacheItem[RDF.rGraph[R]]]:
+               // import flatTap syntax here
+               import cats.syntax.all.*
+               override def lookup(k: H4Uri): F[Option[CacheItem[RDF.rGraph[R]]]] = cache.lookup(k)
+                 .flatTap { opt =>
+                   opt match
+                    case Some(item) =>
+                      f(s"Cache hit for <$k> with ${item.map(_ => "--not showing triples--")}")
+                    case None => f(s"Cache miss for <$k>")
+                 }
+               override def insert(
+                   k: H4Uri,
+                   v: CacheItem[RDF.rGraph[R]]
+               ): F[Unit] = cache.insert(k, v).flatTap(_ =>
+                 f(s"Cache insert for <$k> value ${v.map(_ => "--not showing triples")} ")
+               )
+               override def delete(k: H4Uri): F[Unit] = cache.delete(k)
+               override def deleteBelow(k: H4Uri): F[Unit] = cache.deleteBelow(k)
+            
+         val interClientMiddleware = walletTools.cachedRelGraphMiddleware(lcache)
          val bw = new BasicWallet[F, R](
            Map(),
            Seq(keyIdData)
-         )(interClientMiddleware(loggedClient))
-         AuthNClient[F](bw)(loggedClient)
+         )(interClientMiddleware(client))
+         AuthNClient[F](bw)(client)

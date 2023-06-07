@@ -19,7 +19,7 @@ package run.cosy.http.cache
 import cats.effect.kernel.{Ref, Sync}
 import cats.syntax.all.*
 import cats.{FlatMap, MonadError}
-import io.chrisdavenport.mules.{Cache, LocalSearch}
+import io.chrisdavenport.mules.{Cache, LocalSearch, DeleteBelow, DBCache}
 import org.http4s.Uri
 import run.cosy.http.cache.DirTree.*
 import run.cosy.http.cache.TreeDirCache.WebCache
@@ -32,11 +32,10 @@ sealed trait TreeDirException extends Exception
 case class ServerNotFound(uri: Uri) extends TreeDirException
 case class IncompleteServiceInfo(uri: Uri) extends TreeDirException
 
-/** this is a mules cache, but we add a method to search the path */
+/** this is a mules cache based on a DirTree */
 case class TreeDirCache[F[_], X](
     cacheRef: Ref[F, WebCache[X]]
-)(using F: Sync[F])
-    extends Cache[F, Uri, X]:
+)(using F: Sync[F]) extends DBCache[F, Uri, X]:
 
    /* todo: consider if that is really wise. It doe */
    override def delete(k: Uri): F[Unit] =

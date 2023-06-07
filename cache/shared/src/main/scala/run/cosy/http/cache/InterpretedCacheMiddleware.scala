@@ -20,6 +20,7 @@ import cats.data.Kleisli
 import cats.effect.{Clock, Concurrent, Resource}
 import io.chrisdavenport.mules.http4s.internal.Caching
 import io.chrisdavenport.mules.http4s.{CacheItem, CacheType, CachedResponse}
+import io.chrisdavenport.mules.{Cache, DeleteBelow}
 import org.http4s.*
 import org.http4s.client.Client
 import cats.arrow.FunctionK
@@ -30,9 +31,10 @@ import run.cosy.http.cache.TreeDirCache
   */
 object InterpretedCacheMiddleware:
    type InterpClient[F[_], G[_], T] = Kleisli[G, Request[F], CachedResponse[T]]
+   type TDCache[F[_], K, V] = Cache[F, K, V] with DeleteBelow[F, K]
 
    def client[F[_]: Concurrent: Clock, T](
-       cache: TreeDirCache[F, CacheItem[T]],
+       cache: TDCache[F, Uri, CacheItem[T]],
        interpret: Response[F] => F[CachedResponse[T]],
        enhance: Request[F] => Request[F] = identity,
        cacheType: CacheType = CacheType.Private

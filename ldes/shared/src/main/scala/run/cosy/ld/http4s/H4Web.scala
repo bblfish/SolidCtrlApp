@@ -26,9 +26,9 @@ import run.cosy.ld.http4s.RDFDecoders
 import run.cosy.ld.{UriNGraph, Web}
 import run.cosy.web.util.UrlUtil.http4sUrlToLLUrl
 
-/** Web implementation in http4s todo: we need a client that can find out about redirects, so that
-  * we can correctly name the resource todo: we also need a web cache that can be queried and
-  * updated (or perhaps that would use this)
+/** Web implementation in http4s
+  *
+  * - todo: we need a client that can find out about redirects, so that we can correctly name the resource
   */
 class H4Web[F[_]: Concurrent, R <: RDF](
     client: Client[F]
@@ -50,6 +50,7 @@ class H4Web[F[_]: Concurrent, R <: RDF](
      yield rG.resolveAgainst(http4sUrlToLLUrl(doc).toAbsoluteUrl)
 
    // todo: this should really use client.fetchPNG
+   // todo: notice this is actually close to the CacheResponse... It would be nice to 
    override def getPNG(url: RDF.URI[R]): F[UriNGraph[R]] =
       val doc = url.fragmentLess
       get(doc).map(g => UriNGraph(url, doc, g))

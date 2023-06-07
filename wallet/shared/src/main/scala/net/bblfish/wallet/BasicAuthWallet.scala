@@ -50,12 +50,13 @@ import scala.concurrent.duration.FiniteDuration
 import scala.reflect.TypeTest
 import scala.util.{Failure, Try}
 import io.chrisdavenport.mules.http4s.CacheItem
+import io.chrisdavenport.mules.http4s.CachedResponse
+import io.chrisdavenport.mules.{Cache, DeleteBelow}
 import run.cosy.http.cache.TreeDirCache
 import run.cosy.http.cache.InterpretedCacheMiddleware.InterpClient
 import org.http4s.HttpApp
 import cats.effect.kernel.Resource
 import run.cosy.http.cache.InterpretedCacheMiddleware
-import io.chrisdavenport.mules.http4s.CachedResponse
 import cats.MonadThrow
 import org.http4s.EntityDecoder
 import net.bblfish.wallet.BasicWallet.defaultAC
@@ -104,6 +105,7 @@ object BasicWallet:
    val defaultAC = "defaultAccessContainer"
    val defaultACOpt = Some(defaultAC)
    val ldpContains = "http://www.w3.org/ns/ldp#contains"
+   type TDCache[F[_], K, V] = Cache[F, K, V] with DeleteBelow[F, K]
 
    /** The type of relations that can be found in the Link header, Left is reverse and Right is
      * forward, and the link is to the absoluteUrl from the document
@@ -162,7 +164,7 @@ class WalletTools[Rdf <: RDF](using ops: Ops[Rdf]):
      * Todo: also store graphs for other responses? (e.g. error responses?)
      */
    def cachedRelGraphMiddleware[F[_]: Concurrent: Clock](
-       cache: TreeDirCache[F, CacheItem[RDF.rGraph[Rdf]]]
+       cache: TDCache[F, Uri, CacheItem[RDF.rGraph[Rdf]]]
    )(using
        rdfDecoders: RDFDecoders[F, Rdf]
    ): Client[F] => InterpClient[F, Resource[F, *], RDF.rGraph[Rdf]] = InterpretedCacheMiddleware
@@ -536,14 +538,15 @@ class BasicWallet[F[_], Rdf <: RDF](
    end sign
 
    override def signFromDB(req: h4s.Request[F]): F[Either[Throwable, h4s.Request[F]]] =
-     // todo: the DB needs to keep track of what WWW-Authenticate methods the server allows.
-     // These will be difficult to find in the headers, as the 401 in which they appeared may be
-     // somewhere completely different.
-     // I will assume that the server can do HTTP-Sig for the moment
-     // todo: fix!!!
-     // todo: as we endup with F[Request] do we need Resources everywhere here?
-     findCachedAclFor(req.uri.toLL.toAbsoluteUrl, 100).flatMap {
-       signRequest(req, req.uri.toLL.toAbsoluteUrl)
-     }.attempt.use(fc.pure)
+      // todo: the DB needs to keep track of what WWW-Authenticate methods the server allows.
+      // These will be difficult to find in the headers, as the 401 in which they appeared may be
+      // somewhere completely different.
+      // I will assume that the server can do HTTP-Sig for the moment
+      // todo: fix!!!
+      // todo: as we endup with F[Request] do we need Resources everywhere here?
+      val absoluteReqUrl = req.uri.toLL.toAbsoluteUrl
+      findCachedAclFor(absoluteReqUrl, 100).flatMap {
+        signRequest(req, absoluteReqUrl)
+      }.attempt.use(fc.pure)
 
 end BasicWallet

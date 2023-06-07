@@ -63,6 +63,16 @@ object Insert:
 trait Delete[F[_], K]:
    def delete(k: K): F[Unit]
 
+
+trait DeleteBelow[F[_], K]:  
+   /** Deleting a server without a path, results in loosing all info in the path. todo: consider
+     * if that is really wise. It doe
+     * todo: this was added for our TreeDirCache - it could make sense as a way of deleting all information below a path
+     *    but that indicates that the key has a structure, which is not visible in the type K,
+     *   so this is a bit of a hack.
+     */
+   def deleteBelow(k: K): F[Unit]
+
 object Delete:
    def contramap[F[_], A, B](d: Delete[F, A])(g: B => A): Delete[F, B] = new Delete[F, B]:
       def delete(k: B) = d.delete(g(k))
@@ -78,6 +88,11 @@ trait LocalSearch[F[_], K, V]:
    def findClosest(k: K)(predicate: Option[K] => Boolean): F[Option[V]]
 
 trait Cache[F[_], K, V] extends Lookup[F, K, V] with Insert[F, K, V] with Delete[F, K]
+
+/** A Cache that can delete all resources below a key.
+ * The assumption that the key has that structure should be encoded in the type.
+ */
+trait DBCache[F[_],K, V] extends Cache[F, K, V] with DeleteBelow[F, K]
 
 object Cache:
    def imapValues[F[_]: Functor, K, A, B](

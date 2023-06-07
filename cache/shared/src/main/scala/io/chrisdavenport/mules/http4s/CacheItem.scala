@@ -32,7 +32,8 @@ final case class CacheItem[T](
     created: HttpDate,
     expires: Option[HttpDate],
     response: CachedResponse[T]
-)
+):
+   def map[T2](f: T => T2): CacheItem[T2] = copy(response = response.map(f))
 
 object CacheItem:
 
